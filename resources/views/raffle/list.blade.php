@@ -4,45 +4,84 @@
 
 @section('content')
 
-    <h1 class="text-2xl font-bold text-yellow-400 text-center mb-5">
-        🎁 Sorteos Disponibles
-    </h1>
+<div class="px-3 pb-6">
 
-    <div class="grid grid-cols-1 gap-5">
+    <!-- 🔥 HEADER -->
+    <div class="text-center mb-4">
+        <h1 class="text-xl font-bold text-yellow-400">
+            🎁 Sorteos Disponibles
+        </h1>
+        <p class="text-gray-400 text-sm">
+            Participá y ganá premios increíbles
+        </p>
+    </div>
+
+    <!-- 📱 GRID MOBILE PRO -->
+    <div class="space-y-4">
 
         @forelse($raffles as $r)
 
             <a href="/sorteo/{{ $r->id }}"
-                class="bg-[#141414] rounded-2xl border border-yellow-500/30 shadow-lg overflow-hidden active:scale-95 transition">
+               class="block bg-[#141414] rounded-2xl border border-yellow-500/20 shadow-lg overflow-hidden active:scale-95 transition duration-150">
 
                 <!-- 🖼 IMAGEN -->
-                @if($r->image)
-                    <img src="{{ asset('storage/' . $r->image) }}" class="w-full h-40 object-cover">
-                @else
-                    <div class="w-full h-40 flex items-center justify-center bg-black text-yellow-400">
-                        🎁 Sin imagen
-                    </div>
-                @endif
+                <div class="relative">
+                    @if($r->image)
+                        <img src="{{ asset('storage/' . $r->image) }}"
+                             class="w-full h-44 object-cover">
+                    @else
+                        <div class="w-full h-44 flex items-center justify-center bg-black text-yellow-400 text-lg">
+                            🎁 Sin imagen
+                        </div>
+                    @endif
 
-                <!-- INFO -->
+                    <!-- 🏷 BADGE -->
+                    <div class="absolute top-2 right-2 bg-yellow-400 text-black text-xs px-2 py-1 rounded-lg font-bold shadow">
+                        ACTIVO
+                    </div>
+                </div>
+
+                <!-- 📄 INFO -->
                 <div class="p-4">
 
-                    <h2 class="text-lg font-bold text-yellow-300">
+                    <!-- NOMBRE -->
+                    <h2 class="text-lg font-bold text-yellow-300 leading-tight">
                         {{ $r->name }}
                     </h2>
 
-                    <p class="text-sm mt-1 text-yellow-200">
+                    <!-- PRECIO -->
+                    <p class="text-base mt-1 text-yellow-200 font-semibold">
                         💰 Gs. {{ number_format($r->price, 0, ',', '.') }}
                     </p>
 
-                    <p class="text-sm text-gray-300">
-                        🎟 {{ $r->total_numbers }} números
+                    <!-- NUMEROS -->
+                    <p class="text-sm text-gray-400">
+                        🎟 {{ $r->total_numbers }} números disponibles
                     </p>
 
-                    <!-- BOTON -->
-                    <div class="mt-3 bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 
-                                            text-black text-center py-2 rounded-xl font-bold shadow">
-                        PARTICIPAR
+                    <!-- PROGRESO (PRO UX 🔥) -->
+                    @php
+                        $sold = $r->numbers->where('status','sold')->count();
+                        $total = $r->total_numbers;
+                        $percent = $total > 0 ? ($sold / $total) * 100 : 0;
+                    @endphp
+
+                    <div class="mt-3">
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-yellow-400 h-2 rounded-full"
+                                 style="width: {{ $percent }}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">
+                            {{ round($percent) }}% vendido
+                        </p>
+                    </div>
+
+                    <!-- BOTÓN -->
+                    <div class="mt-4">
+                        <div class="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 
+                                    text-black text-center py-3 rounded-xl font-bold shadow-lg text-sm">
+                            🚀 PARTICIPAR AHORA
+                        </div>
                     </div>
 
                 </div>
@@ -52,11 +91,13 @@
         @empty
 
             <div class="text-center text-yellow-400 mt-10">
-                No hay sorteos disponibles aún
+                🎁 No hay sorteos disponibles aún
             </div>
 
         @endforelse
 
     </div>
+
+</div>
 
 @endsection

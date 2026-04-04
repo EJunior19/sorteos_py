@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Raffle;
 use App\Models\RaffleNumber;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -49,25 +51,41 @@ class AdminController extends Controller
         return view('admin.create');
     }
 
-    // 💾 GUARDAR SORTEO (ÚNICO)
+    // 💾 GUARDAR SORTEO (LIMPIO)
     public function store(Request $request)
     {
+        Log::info("🚀 INICIO STORE");
+
         $request->validate([
             'name' => 'required',
             'price' => 'required',
             'total_numbers' => 'required|integer|min:1',
-            'image' => 'nullable|image|max:5120'
+            'image' => 'required|image|max:5120'
         ]);
 
-        // 🔥 LIMPIAR PRECIO
+        // 💰 limpiar precio
         $price = str_replace('.', '', $request->price);
 
         $imagePath = null;
 
+        // 🔥 SUBIDA REAL CON LARAVEL
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('raffles', 'public');
+
+            $file = $request->file('image');
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $path = $file->storeAs('raffles', $filename, 'public');
+
+            Log::info("📸 IMAGEN GUARDADA: " . $path);
+
+            $imagePath = $path;
+
+        } else {
+            Log::error("❌ NO SE DETECTÓ IMAGEN");
         }
 
+        // 💾 CREAR SORTEO
         $raffle = Raffle::create([
             'name' => $request->name,
             'price' => $price,
@@ -75,6 +93,8 @@ class AdminController extends Controller
             'image' => $imagePath,
             'status' => 'active'
         ]);
+
+        Log::info("🎯 SORTEO CREADO ID: " . $raffle->id);
 
         // 🔢 GENERAR NUMEROS
         for ($i = 1; $i <= $raffle->total_numbers; $i++) {
@@ -84,10 +104,12 @@ class AdminController extends Controller
             ]);
         }
 
+        Log::info("🔢 NUMEROS GENERADOS");
+
         return redirect('/admin')->with('success', 'Sorteo creado correctamente');
     }
 
-    // 💰 CONFIRMAR PAGO
+    // 💰 CONFIRMAR PAGO (CON REDIRECCIÓN A RULETA)
     public function confirmarPago($id)
     {
         $num = RaffleNumber::findOrFail($id);
@@ -96,11 +118,61 @@ class AdminController extends Controller
             return back()->with('error', 'Solo se pueden confirmar números reservados');
         }
 
+        // marcar vendido
         $num->update([
             'status' => 'sold',
             'paid' => true,
         ]);
 
-        return back()->with('success', 'Pago confirmado correctamente');
+        $raffle = $num->raffle;
+
+        $total = $raffle->numbers()->count();
+        $sold = $raffle->numbers()->where('status', 'sold')->count();
+
+        Log::info("📊 PROGRESO: $sold / $total");
+
+        // 🎯 SI SE VENDIÓ TODO → IR A RULETA
+        if ($total === $sold) {
+
+            Log::info("🎰 TODO VENDIDO → REDIRECT RULETA");
+
+            return redirect()->route('admin.roulette', $raffle->id)
+                ->with('success', '¡Todo vendido! Iniciando sorteo...');
+        }
+
+        return back()->with('success', 'Pago confirmado');
+    }
+
+    // 🎰 VISTA RULETA
+    public function vistaSorteo($id)
+    {
+        $raffle = Raffle::with('numbers')->findOrFail($id);
+
+        return view('admin.roulette', compact('raffle'));
+    }
+
+    // 🎯 SORTEAR GANADOR
+    public function sortear($id)
+    {
+        $raffle = Raffle::with('numbers')->findOrFail($id);
+
+        $total = $raffle->numbers->count();
+        $sold = $raffle->numbers->where('status', 'sold')->count();
+
+        if ($total !== $sold) {
+            return back()->with('error', 'Aún no se vendieron todos');
+        }
+
+        // elegir ganador
+        $winner = $raffle->numbers->where('status', 'sold')->random();
+
+        $raffle->update([
+            'winner_number' => $winner->number,
+            'status' => 'finished'
+        ]);
+
+        Log::info("🏆 GANADOR: " . $winner->number);
+
+        return redirect('/admin')->with('success', 'Ganador: ' . $winner->number);
     }
 }

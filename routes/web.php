@@ -19,7 +19,7 @@ Route::get('/', [RaffleController::class, 'index'])->name('home');
 // Ver sorteo
 Route::get('/sorteo/{id}', [RaffleController::class, 'show'])->name('raffle.show');
 
-// Reservar números (IMPORTANTE)
+// Reservar números
 Route::post('/reservar', [ReservationController::class, 'reservar'])->name('reservar');
 
 
@@ -48,7 +48,7 @@ Route::middleware('admin.auth')->group(function () {
     // Dashboard
     Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
-    // Crear sorteo (form)
+    // Crear sorteo
     Route::get('/admin/create', [AdminController::class, 'create'])->name('admin.create');
 
     // Guardar sorteo
@@ -56,5 +56,8 @@ Route::middleware('admin.auth')->group(function () {
 
     // Confirmar pago
     Route::post('/admin/confirmar/{id}', [AdminController::class, 'confirmarPago'])->name('admin.confirmarPago');
+
+    // 🎯 SORTEAR GANADOR (🔥 NUEVO)
+    Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
 
 });
