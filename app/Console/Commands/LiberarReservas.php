@@ -13,7 +13,8 @@ class LiberarReservas extends Command
     public function handle()
     {
         $numeros = RaffleNumber::where('status', 'reserved')
-            ->where('expires_at', '<', now())
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
             ->get();
 
         foreach ($numeros as $n) {
@@ -21,10 +22,10 @@ class LiberarReservas extends Command
                 'status' => 'free',
                 'customer_name' => null,
                 'reserved_at' => null,
-                'expires_at' => null
+                'expires_at' => null,
             ]);
         }
 
-        $this->info("Reservas liberadas: " . $numeros->count());
+        $this->info('Reservas liberadas: ' . $numeros->count());
     }
 }
