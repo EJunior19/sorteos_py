@@ -6,7 +6,6 @@ use App\Models\Raffle;
 use App\Models\RaffleNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -51,7 +50,7 @@ class AdminController extends Controller
         return view('admin.create');
     }
 
-    // 💾 GUARDAR SORTEO (LIMPIO)
+    // 💾 GUARDAR SORTEO
     public function store(Request $request)
     {
         Log::info("🚀 INICIO STORE");
@@ -63,29 +62,18 @@ class AdminController extends Controller
             'image' => 'required|image|max:5120'
         ]);
 
-        // 💰 limpiar precio
         $price = str_replace('.', '', $request->price);
 
         $imagePath = null;
 
-        // 🔥 SUBIDA REAL CON LARAVEL
         if ($request->hasFile('image')) {
-
             $file = $request->file('image');
-
             $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
             $path = $file->storeAs('raffles', $filename, 'public');
-
             Log::info("📸 IMAGEN GUARDADA: " . $path);
-
             $imagePath = $path;
-
-        } else {
-            Log::error("❌ NO SE DETECTÓ IMAGEN");
         }
 
-        // 💾 CREAR SORTEO
         $raffle = Raffle::create([
             'name' => $request->name,
             'price' => $price,
@@ -96,7 +84,6 @@ class AdminController extends Controller
 
         Log::info("🎯 SORTEO CREADO ID: " . $raffle->id);
 
-        // 🔢 GENERAR NUMEROS
         for ($i = 1; $i <= $raffle->total_numbers; $i++) {
             $raffle->numbers()->create([
                 'number' => str_pad($i, 2, '0', STR_PAD_LEFT),
@@ -104,12 +91,10 @@ class AdminController extends Controller
             ]);
         }
 
-        Log::info("🔢 NUMEROS GENERADOS");
-
         return redirect('/admin')->with('success', 'Sorteo creado correctamente');
     }
 
-    // 💰 CONFIRMAR PAGO (CON REDIRECCIÓN A RULETA)
+    // 💰 CONFIRMAR PAGO
     public function confirmarPago($id)
     {
         $num = RaffleNumber::findOrFail($id);
@@ -118,7 +103,6 @@ class AdminController extends Controller
             return back()->with('error', 'Solo se pueden confirmar números reservados');
         }
 
-        // marcar vendido
         $num->update([
             'status' => 'sold',
             'paid' => true,
@@ -133,7 +117,6 @@ class AdminController extends Controller
 
         // 🎯 SI SE VENDIÓ TODO → IR A RULETA
         if ($total === $sold) {
-
             Log::info("🎰 TODO VENDIDO → REDIRECT RULETA");
 
             return redirect()->route('admin.roulette', $raffle->id)
@@ -152,27 +135,60 @@ class AdminController extends Controller
     }
 
     // 🎯 SORTEAR GANADOR
-    public function sortear($id)
-    {
-        $raffle = Raffle::with('numbers')->findOrFail($id);
+   public function sortear($id)
+{
+    $raffle = Raffle::with('numbers')->findOrFail($id);
 
-        $total = $raffle->numbers->count();
-        $sold = $raffle->numbers->where('status', 'sold')->count();
+    $total = $raffle->numbers->count();
+    $soldNumbers = $raffle->numbers->where('status', 'sold');
+    $sold = $soldNumbers->count();
 
-        if ($total !== $sold) {
-            return back()->with('error', 'Aún no se vendieron todos');
+    if ($total !== $sold) {
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aún no se vendieron todos'
+            ], 422);
         }
 
-        // elegir ganador
-        $winner = $raffle->numbers->where('status', 'sold')->random();
-
-        $raffle->update([
-            'winner_number' => $winner->number,
-            'status' => 'finished'
-        ]);
-
-        Log::info("🏆 GANADOR: " . $winner->number);
-
-        return redirect('/admin')->with('success', 'Ganador: ' . $winner->number);
+        return back()->with('error', 'Aún no se vendieron todos');
     }
+
+    // Si ya hay ganador, reutilizarlo
+    if ($raffle->winner_number) {
+        $winner = $soldNumbers->firstWhere('number', $raffle->winner_number);
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'winner_number' => $raffle->winner_number,
+                'winner_name' => $winner->buyer_name ?? $winner->name ?? $winner->customer_name ?? 'Participante',
+            ]);
+        }
+
+        return redirect()->route('admin.roulette', $raffle->id)
+            ->with('success', 'Ganador: ' . $raffle->winner_number);
+    }
+
+    // Elegir ganador
+    $winner = $soldNumbers->random();
+
+    $raffle->update([
+        'winner_number' => $winner->number,
+        'status' => 'finished'
+    ]);
+
+    Log::info("🏆 GANADOR: " . $winner->number);
+
+    if (request()->expectsJson()) {
+        return response()->json([
+            'success' => true,
+            'winner_number' => $winner->number,
+            'winner_name' => $winner->buyer_name ?? $winner->name ?? $winner->customer_name ?? 'Participante',
+        ]);
+    }
+
+    return redirect()->route('admin.roulette', $raffle->id)
+        ->with('success', 'Ganador: ' . $winner->number);
+}
 }

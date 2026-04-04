@@ -45,19 +45,14 @@ Route::get('/admin/logout', [AuthController::class, 'logout'])->name('admin.logo
 
 Route::middleware('admin.auth')->group(function () {
 
-    // Dashboard
     Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
-    // Crear sorteo
     Route::get('/admin/create', [AdminController::class, 'create'])->name('admin.create');
-
-    // Guardar sorteo
     Route::post('/admin/create', [AdminController::class, 'store'])->name('admin.store');
 
-    // Confirmar pago
     Route::post('/admin/confirmar/{id}', [AdminController::class, 'confirmarPago'])->name('admin.confirmarPago');
 
-    // 🎯 SORTEAR GANADOR (🔥 NUEVO)
-    Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
+    Route::get('/admin/roulette/{id}', [AdminController::class, 'vistaSorteo'])->name('admin.roulette');
 
+    Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
 });
