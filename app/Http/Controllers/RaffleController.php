@@ -10,8 +10,17 @@ class RaffleController extends Controller
     // 🎯 LISTA DE SORTEOS
     public function index()
     {
-        $raffles = Raffle::where('status', 'active')->latest()->get();
-        return view('raffle.list', compact('raffles'));
+        $raffles = Raffle::where('status', 'active')
+            ->with('numbers')
+            ->latest()
+            ->get();
+
+        $winners = Raffle::whereNotNull('winner_number')
+            ->latest()
+            ->take(5)
+            ->get();
+
+        return view('raffle.list', compact('raffles', 'winners'));
     }
 
     // 🎰 VER SORTEO
@@ -36,5 +45,16 @@ class RaffleController extends Controller
             'free',
             'progress'
         ));
+    }
+
+    // 🏆 ÚLTIMOS GANADORES
+    public function winners()
+    {
+        $winners = Raffle::whereNotNull('winner_number')
+            ->latest()
+            ->take(10)
+            ->get();
+
+        return view('winners.index', compact('winners'));
     }
 }

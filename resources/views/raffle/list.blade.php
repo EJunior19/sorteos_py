@@ -6,6 +6,44 @@
 
 <div class="px-3 pb-6">
 
+    <!-- 🏆 ÚLTIMOS GANADORES -->
+    @if(isset($winners) && $winners->count())
+    <div class="mb-6">
+
+        <h2 class="text-lg font-bold text-green-400 mb-3 text-center">
+            🏆 Últimos Ganadores
+        </h2>
+
+        <div class="space-y-2">
+
+            @foreach($winners as $w)
+                <div class="bg-green-500/10 border border-green-400/30 rounded-xl p-3 flex justify-between items-center">
+
+                    <div>
+                        <p class="text-sm text-gray-300">
+                            {{ $w->name ?? 'Sorteo #' . $w->id }}
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            {{ $w->created_at->format('d/m/Y') }}
+                        </p>
+                    </div>
+
+                    <div class="text-right">
+                        <p class="text-green-400 font-bold text-lg">
+                            Nº {{ $w->winner_number }}
+                        </p>
+                        <p class="text-yellow-300 text-xs">
+                            {{ $w->winner_name ?? 'Ganador' }}
+                        </p>
+                    </div>
+
+                </div>
+            @endforeach
+
+        </div>
+    </div>
+    @endif
+
     <!-- 🔥 HEADER -->
     <div class="text-center mb-4">
         <h1 class="text-xl font-bold text-yellow-400">
@@ -59,7 +97,7 @@
                         🎟 {{ $r->total_numbers }} números disponibles
                     </p>
 
-                    <!-- PROGRESO (PRO UX 🔥) -->
+                    <!-- PROGRESO -->
                     @php
                         $sold = $r->numbers->where('status','sold')->count();
                         $total = $r->total_numbers;

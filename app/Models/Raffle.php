@@ -12,10 +12,11 @@ class Raffle extends Model
         'total_numbers',
         'draw_date',
         'status',
-        'image', // 🔥 FIX IMPORTANTE
+        'image',
+        'winner_number',
+        'winner_name',
     ];
 
-    // 🔗 RELACIÓN CON NÚMEROS
     public function numbers()
     {
         return $this->hasMany(RaffleNumber::class);

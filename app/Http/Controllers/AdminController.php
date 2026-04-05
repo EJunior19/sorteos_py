@@ -106,6 +106,7 @@ class AdminController extends Controller
         $num->update([
             'status' => 'sold',
             'paid' => true,
+            'expires_at' => null,
         ]);
 
         $raffle = $num->raffle;
@@ -115,7 +116,6 @@ class AdminController extends Controller
 
         Log::info("📊 PROGRESO: $sold / $total");
 
-        // 🎯 SI SE VENDIÓ TODO → IR A RULETA
         if ($total === $sold) {
             Log::info("🎰 TODO VENDIDO → REDIRECT RULETA");
 
@@ -126,7 +126,7 @@ class AdminController extends Controller
         return back()->with('success', 'Pago confirmado');
     }
 
-    // 🎰 VISTA RULETA
+    // 🎰 VISTA SORTEO
     public function vistaSorteo($id)
     {
         $raffle = Raffle::with('numbers')->findOrFail($id);
@@ -135,60 +135,61 @@ class AdminController extends Controller
     }
 
     // 🎯 SORTEAR GANADOR
-   public function sortear($id)
-{
-    $raffle = Raffle::with('numbers')->findOrFail($id);
+    public function sortear($id)
+    {
+        $raffle = Raffle::with('numbers')->findOrFail($id);
 
-    $total = $raffle->numbers->count();
-    $soldNumbers = $raffle->numbers->where('status', 'sold');
-    $sold = $soldNumbers->count();
+        $total = $raffle->numbers->count();
+        $soldNumbers = $raffle->numbers->where('status', 'sold');
+        $sold = $soldNumbers->count();
 
-    if ($total !== $sold) {
-        if (request()->expectsJson()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Aún no se vendieron todos'
-            ], 422);
+        if ($total !== $sold) {
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aún no se vendieron todos'
+                ], 422);
+            }
+
+            return back()->with('error', 'Aún no se vendieron todos');
         }
 
-        return back()->with('error', 'Aún no se vendieron todos');
-    }
+        // Si ya hay ganador, reutilizarlo
+        if ($raffle->winner_number) {
+            $winner = $soldNumbers->firstWhere('number', $raffle->winner_number);
 
-    // Si ya hay ganador, reutilizarlo
-    if ($raffle->winner_number) {
-        $winner = $soldNumbers->firstWhere('number', $raffle->winner_number);
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'winner_number' => $raffle->winner_number,
+                    'winner_name' => $raffle->winner_name ?? ($winner->customer_name ?? 'Participante'),
+                ]);
+            }
+
+            return redirect()->route('admin.roulette', $raffle->id)
+                ->with('success', 'Ganador: ' . $raffle->winner_number);
+        }
+
+        // Elegir ganador
+        $winner = $soldNumbers->random();
+
+        $raffle->update([
+            'winner_number' => $winner->number,
+            'winner_name' => $winner->customer_name ?? 'Participante',
+            'status' => 'finished'
+        ]);
+
+        Log::info("🏆 GANADOR: " . $winner->number . ' - ' . ($winner->customer_name ?? 'Participante'));
 
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'winner_number' => $raffle->winner_number,
-                'winner_name' => $winner->buyer_name ?? $winner->name ?? $winner->customer_name ?? 'Participante',
+                'winner_number' => $winner->number,
+                'winner_name' => $winner->customer_name ?? 'Participante',
             ]);
         }
 
         return redirect()->route('admin.roulette', $raffle->id)
-            ->with('success', 'Ganador: ' . $raffle->winner_number);
+            ->with('success', 'Ganador: ' . $winner->number);
     }
-
-    // Elegir ganador
-    $winner = $soldNumbers->random();
-
-    $raffle->update([
-        'winner_number' => $winner->number,
-        'status' => 'finished'
-    ]);
-
-    Log::info("🏆 GANADOR: " . $winner->number);
-
-    if (request()->expectsJson()) {
-        return response()->json([
-            'success' => true,
-            'winner_number' => $winner->number,
-            'winner_name' => $winner->buyer_name ?? $winner->name ?? $winner->customer_name ?? 'Participante',
-        ]);
-    }
-
-    return redirect()->route('admin.roulette', $raffle->id)
-        ->with('success', 'Ganador: ' . $winner->number);
-}
 }

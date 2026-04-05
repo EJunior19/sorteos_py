@@ -16,6 +16,8 @@ use App\Http\Controllers\ReservationController;
 // Home → lista de sorteos
 Route::get('/', [RaffleController::class, 'index'])->name('home');
 
+Route::get('/winners', [RaffleController::class, 'winners'])->name('winners');
+
 // Ver sorteo
 Route::get('/sorteo/{id}', [RaffleController::class, 'show'])->name('raffle.show');
 
