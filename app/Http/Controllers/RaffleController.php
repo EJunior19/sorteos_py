@@ -10,12 +10,15 @@ class RaffleController extends Controller
     // 🎯 LISTA DE SORTEOS
     public function index()
     {
-        $raffles = Raffle::where('status', 'active')
+        $raffles = Raffle::whereIn('status', ['active', 'finished'])
             ->with('numbers')
             ->latest()
             ->get();
 
-        $winners = Raffle::whereNotNull('winner_number')
+        // Ganadores: sorteos con sistema legacy (winner_number directo)
+        // y sorteos multi-premio (tienen prizes con winner)
+        $winners = Raffle::where('status', 'finished')
+            ->with(['prizes' => fn($q) => $q->orderByDesc('order')])
             ->latest()
             ->take(5)
             ->get();
@@ -26,31 +29,26 @@ class RaffleController extends Controller
     // 🎰 VER SORTEO
     public function show($id)
     {
-        $raffle = Raffle::where('status', 'active')
-            ->with('numbers')
+        $raffle = Raffle::whereIn('status', ['active', 'finished'])
+            ->with(['numbers', 'prizes'])
             ->findOrFail($id);
 
-        $total = $raffle->numbers->count();
-        $sold = $raffle->numbers->where('status', 'sold')->count();
+        $total    = $raffle->numbers->count();
+        $sold     = $raffle->numbers->where('status', 'sold')->count();
         $reserved = $raffle->numbers->where('status', 'reserved')->count();
-        $free = $raffle->numbers->where('status', 'free')->count();
-
+        $free     = $raffle->numbers->where('status', 'free')->count();
         $progress = $total > 0 ? round((($sold + $reserved) / $total) * 100) : 0;
 
-        return view('raffle.play', compact(
-            'raffle',
-            'total',
-            'sold',
-            'reserved',
-            'free',
-            'progress'
+        return view('raffle.show', compact(
+            'raffle', 'total', 'sold', 'reserved', 'free', 'progress'
         ));
     }
 
     // 🏆 ÚLTIMOS GANADORES
     public function winners()
     {
-        $winners = Raffle::whereNotNull('winner_number')
+        $winners = Raffle::where('status', 'finished')
+            ->with(['prizes' => fn($q) => $q->orderByDesc('order')])
             ->latest()
             ->take(10)
             ->get();
