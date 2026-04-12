@@ -8,56 +8,64 @@ use Illuminate\Support\Facades\DB;
 
 class ReservationController extends Controller
 {
-    // 🎯 RESERVAR NÚMEROS
     public function reservar(Request $request)
     {
         $request->validate([
             'raffle_id' => 'required|exists:raffles,id',
-            'numbers' => 'required|array|min:1',
-            'name' => 'required|string|max:255'
+            'numbers'   => 'required|array|min:1',
+            'numbers.*' => 'integer|min:1',
+            'name'      => 'required|string|max:255'
         ]);
 
         try {
 
             DB::beginTransaction();
 
-            foreach ($request->numbers as $num) {
+            $numbers = array_unique($request->numbers);
 
-                // 🔒 BLOQUEO PARA EVITAR DOBLE RESERVA
+            $reservados = [];
+
+            foreach ($numbers as $num) {
+
+                // 🔥 FIX IMPORTANTE
+                $numberFormatted = str_pad((int)$num, 2, '0', STR_PAD_LEFT);
+
                 $n = RaffleNumber::where('raffle_id', $request->raffle_id)
-                    ->where('number', $num)
+                    ->where('number', $numberFormatted) // 👈 CAMBIO CLAVE
                     ->lockForUpdate()
                     ->first();
 
                 if (!$n) {
                     DB::rollBack();
                     return response()->json([
-                        'error' => "Número $num no existe"
+                        'error' => "El número {$num} no existe"
                     ], 400);
                 }
 
-                // 🚫 SI YA NO ESTÁ LIBRE
                 if ($n->status !== 'free') {
                     DB::rollBack();
                     return response()->json([
-                        'error' => "El número $num ya no está disponible"
+                        'error' => "El número {$num} ya fue reservado o vendido"
                     ], 400);
                 }
 
-                // ⏱ RESERVAR
                 $n->update([
-                    'status' => 'reserved',
+                    'status'        => 'reserved',
                     'customer_name' => $request->name,
-                    'reserved_at' => now(),
-                    'expires_at' => now()->addMinutes(15),
-                    'paid' => false
+                    'reserved_at'   => now(),
+                    'expires_at'    => now()->addMinutes(15),
+                    'paid'          => false
                 ]);
+
+                $reservados[] = $num;
             }
 
             DB::commit();
 
             return response()->json([
-                'success' => true
+                'success' => true,
+                'numbers' => $reservados,
+                'name'    => $request->name
             ]);
 
         } catch (\Exception $e) {
@@ -65,7 +73,8 @@ class ReservationController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'error' => 'Error al reservar, intentá nuevamente'
+                'error' => 'Error al reservar. Intente nuevamente.',
+                'debug' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }

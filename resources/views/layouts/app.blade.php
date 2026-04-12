@@ -19,30 +19,35 @@
 
 </head>
 
-<body class="bg-[#0B0B0B] text-white min-h-screen max-w-md mx-auto">
+<body class="bg-[#0B0B0B] text-white min-h-screen">
 
-    <!-- 🔥 HEADER -->
-    <div class="bg-black border-b border-yellow-500/30 p-4 flex justify-between items-center sticky top-0 z-50">
+    <!-- 🔥 CONTENEDOR APP (IMPORTANTE) -->
+    <div class="max-w-md mx-auto relative min-h-screen">
 
-        <a href="/" class="text-lg font-bold text-yellow-400">
-            🎰 SorteosPY
-        </a>
+        <!-- 🔥 HEADER -->
+        <div class="bg-black border-b border-yellow-500/30 p-4 flex justify-between items-center sticky top-0 z-50">
 
-        <div class="flex gap-3 text-sm">
-            <a href="/" class="text-yellow-300">Inicio</a>
-            <a href="/admin" class="text-yellow-300">Admin</a>
+            <a href="/" class="text-lg font-bold text-yellow-400">
+                🎰 SorteosPY
+            </a>
+
+            <div class="flex gap-3 text-sm">
+                <a href="/" class="text-yellow-300 hover:text-yellow-400 transition">Inicio</a>
+                <a href="/admin" class="text-yellow-300 hover:text-yellow-400 transition">Admin</a>
+            </div>
+
+        </div>
+
+        <!-- 📦 CONTENIDO -->
+        <div class="p-4 pb-24">
+            @yield('content')
         </div>
 
     </div>
 
-    <!-- 📦 CONTENIDO -->
-    <div class="p-4">
-        @yield('content')
-    </div>
-
     <!-- 📲 BOTÓN INSTALAR APP -->
     <button id="installBtn"
-        class="fixed bottom-4 right-4 bg-yellow-400 text-black px-4 py-3 rounded-full shadow-lg hidden">
+        class="fixed bottom-4 right-4 bg-yellow-400 text-black px-4 py-3 rounded-full shadow-lg hidden hover:scale-105 transition z-50">
         📲 Instalar
     </button>
 
@@ -52,7 +57,8 @@
         // 🔥 SERVICE WORKER
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
-                .then(() => console.log('Service Worker registrado'));
+                .then(() => console.log('Service Worker registrado'))
+                .catch(err => console.log('SW error', err));
         }
 
         // 📲 INSTALAR APP

@@ -13,7 +13,7 @@
 
 <div class="px-3 pb-6">
 
-    <!-- 🔥 SORTEOS ACTIVOS -->
+    <!-- HEADER -->
     <div class="text-center mb-4">
         <h1 class="text-xl font-bold text-yellow-400">
             🎁 Sorteos Disponibles
@@ -23,11 +23,19 @@
         </p>
     </div>
 
+    <!-- 🔥 ACTIVOS -->
     <div class="space-y-4">
         @forelse($activeRaffles as $r)
-            <a href="/sorteo/{{ $r->id }}"
-               class="block bg-[#141414] rounded-2xl border border-yellow-500/20 shadow-lg overflow-hidden active:scale-95 transition duration-150">
 
+            @php
+                $sold = $r->numbers->where('status','sold')->count();
+                $total = $r->total_numbers;
+                $percent = $total > 0 ? ($sold / $total) * 100 : 0;
+            @endphp
+
+            <div class="bg-[#141414] rounded-2xl border border-yellow-500/20 shadow-lg overflow-hidden">
+
+                <!-- IMAGEN -->
                 <div class="relative">
                     @if($r->image)
                         <img src="{{ asset('storage/' . $r->image) }}"
@@ -39,17 +47,19 @@
                         </div>
                     @endif
 
-                    <div class="absolute top-2 right-2 bg-yellow-400 text-black text-xs px-2 py-1 rounded-lg font-bold shadow">
+                    <div class="absolute top-2 right-2 bg-yellow-400 text-black text-xs px-2 py-1 rounded-lg font-bold">
                         ACTIVO
                     </div>
                 </div>
 
+                <!-- INFO -->
                 <div class="p-4">
-                    <h2 class="text-lg font-bold text-yellow-300 leading-tight">
+
+                    <h2 class="text-lg font-bold text-yellow-300">
                         {{ $r->name }}
                     </h2>
 
-                    <p class="text-base mt-1 text-yellow-200 font-semibold">
+                    <p class="text-yellow-200 font-semibold mt-1">
                         💰 Gs. {{ number_format($r->price, 0, ',', '.') }}
                     </p>
 
@@ -57,12 +67,7 @@
                         🎟 {{ $r->total_numbers }} números disponibles
                     </p>
 
-                    @php
-                        $sold = $r->numbers->where('status','sold')->count();
-                        $total = $r->total_numbers;
-                        $percent = $total > 0 ? ($sold / $total) * 100 : 0;
-                    @endphp
-
+                    <!-- PROGRESO -->
                     <div class="mt-3">
                         <div class="w-full bg-gray-700 rounded-full h-2">
                             <div class="bg-yellow-400 h-2 rounded-full"
@@ -73,13 +78,19 @@
                         </p>
                     </div>
 
+                    <!-- BOTÓN -->
                     <div class="mt-4">
-                        <div class="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-black text-center py-3 rounded-xl font-bold shadow-lg text-sm">
+                        <div onclick="window.location.href='/sorteo/{{ $r->id }}/play'"
+                             class="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-black text-center py-3 rounded-xl font-bold shadow-lg text-sm cursor-pointer hover:scale-105 transition">
+
                             🚀 PARTICIPAR AHORA
+
                         </div>
                     </div>
+
                 </div>
-            </a>
+            </div>
+
         @empty
             <div class="text-center text-yellow-400 mt-10">
                 🎁 No hay sorteos activos en este momento
@@ -87,31 +98,31 @@
         @endforelse
     </div>
 
-    <!-- 🏆 ÚLTIMO SORTEO FINALIZADO -->
+    <!-- 🏆 ÚLTIMO RESULTADO -->
     @if($latestFinishedRaffle)
         <div class="mt-8 mb-4">
             <h2 class="text-lg font-bold text-green-400 mb-3 text-center">
                 🏆 Último sorteo finalizado
             </h2>
 
-            <a href="/sorteo/{{ $latestFinishedRaffle->id }}"
-               class="block bg-green-500/10 border border-green-400/30 rounded-2xl p-4 shadow-lg">
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <p class="text-white font-semibold">
-                            {{ $latestFinishedRaffle->name }}
-                        </p>
-                    </div>
+            <div onclick="window.location.href='/sorteo/{{ $latestFinishedRaffle->id }}'"
+                 class="bg-green-500/10 border border-green-400/30 rounded-2xl p-4 shadow-lg cursor-pointer hover:scale-105 transition">
 
-                    <span class="shrink-0 bg-green-500 text-white text-xs font-bold px-3 py-2 rounded-xl">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-white font-semibold">
+                        {{ $latestFinishedRaffle->name }}
+                    </p>
+
+                    <span class="bg-green-500 text-white text-xs font-bold px-3 py-2 rounded-xl">
                         VER RESULTADO
                     </span>
                 </div>
-            </a>
+
+            </div>
         </div>
     @endif
 
-    <!-- 📜 SORTEOS FINALIZADOS -->
+    <!-- 📜 HISTÓRICO -->
     @if($finishedRaffles->count() > 1)
         <div class="mt-6">
             <h2 class="text-lg font-bold text-red-400 mb-3 text-center">
@@ -120,12 +131,14 @@
 
             <div class="space-y-2">
                 @foreach($finishedRaffles->skip(1) as $r)
-                    <a href="/sorteo/{{ $r->id }}"
-                       class="block bg-[#141414] border border-red-500/20 rounded-xl px-4 py-3">
+                    <div onclick="window.location.href='/sorteo/{{ $r->id }}'"
+                         class="bg-[#141414] border border-red-500/20 rounded-xl px-4 py-3 cursor-pointer hover:scale-105 transition">
+
                         <p class="text-white font-medium">
                             {{ $r->name }}
                         </p>
-                    </a>
+
+                    </div>
                 @endforeach
             </div>
         </div>
