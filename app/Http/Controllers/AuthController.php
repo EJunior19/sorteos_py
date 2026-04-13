@@ -21,7 +21,12 @@ class AuthController extends Controller
         ]);
 
         if (Hash::check($request->password, env('ADMIN_PASSWORD_HASH'))) {
-            session(['admin' => true]);
+            session(['role' => 'admin']);
+            return redirect('/admin');
+        }
+
+        if (env('COLLAB_PASSWORD_HASH') && Hash::check($request->password, env('COLLAB_PASSWORD_HASH'))) {
+            session(['role' => 'colaborador']);
             return redirect('/admin');
         }
 
@@ -31,7 +36,7 @@ class AuthController extends Controller
     // 🔹 Logout
     public function logout()
     {
-        session()->forget('admin');
+        session()->forget('role');
         return redirect('/');
     }
 }

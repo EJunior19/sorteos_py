@@ -5,12 +5,12 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 
-class AdminAuth
+class AdminOnly
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!in_array(session('role'), ['admin', 'colaborador'])) {
-            return redirect('/admin/login');
+        if (session('role') !== 'admin') {
+            abort(403, 'Acceso restringido al administrador.');
         }
 
         return $next($request);

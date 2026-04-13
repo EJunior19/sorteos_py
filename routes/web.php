@@ -54,19 +54,23 @@ Route::get('/admin/logout', [AuthController::class, 'logout'])->name('admin.logo
 
 Route::middleware('admin.auth')->group(function () {
 
-    // Dashboard
+    // Dashboard (admin y colaborador)
     Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
-    // Crear sorteo
-    Route::get('/admin/create', [AdminController::class, 'create'])->name('admin.create');
-    Route::post('/admin/create', [AdminController::class, 'store'])->name('admin.store');
-
-    // Confirmar pago
+    // Confirmar pago (admin y colaborador)
     Route::post('/admin/confirmar/{id}', [AdminController::class, 'confirmarPago'])->name('admin.confirmarPago');
 
-    // Vista ruleta
-    Route::get('/admin/roulette/{id}', [AdminController::class, 'vistaSorteo'])->name('admin.roulette');
+    // Solo admin
+    Route::middleware('admin.only')->group(function () {
 
-    // Ejecutar sorteo
-    Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
+        // Crear sorteo
+        Route::get('/admin/create', [AdminController::class, 'create'])->name('admin.create');
+        Route::post('/admin/create', [AdminController::class, 'store'])->name('admin.store');
+
+        // Vista ruleta
+        Route::get('/admin/roulette/{id}', [AdminController::class, 'vistaSorteo'])->name('admin.roulette');
+
+        // Ejecutar sorteo
+        Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
+    });
 });
