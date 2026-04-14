@@ -202,6 +202,79 @@ class AdminController extends Controller
         ]);
     }
 
+    // 📲 GENERAR MENSAJE WHATSAPP
+    public function generarMensajeWhatsapp($id)
+    {
+        $raffle = Raffle::with(['numbers', 'prizes' => function ($q) {
+            $q->orderByDesc('order');
+        }])->findOrFail($id);
+
+        $mensaje  = "🎰✨ *¡SORTEO EN CURSO!* ✨🎰\n";
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
+        $mensaje .= "🎟️ *{$raffle->name}*\n";
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+        $mensaje .= "🏆 *PREMIOS INCREÍBLES:*\n";
+
+        $emojis = ['🥇','🥈','🥉','🎁','🎀','🌟','💫','✨','🎯','🎪',
+                   '🎨','🎭','🎬','🎤','🎧','🎸','🎺','🎻','🥁','🎹'];
+
+        foreach ($raffle->prizes as $index => $prize) {
+            $emoji  = $emojis[$index] ?? '🎁';
+            $orden  = ($index + 1) . '°';
+            $mensaje .= "{$emoji} *{$orden} Premio:* {$prize->name}";
+            if ($prize->description) {
+                $mensaje .= " _{$prize->description}_";
+            }
+            $mensaje .= "\n";
+        }
+
+        $precio   = number_format($raffle->price, 0, ',', '.');
+        $total    = $raffle->numbers->count();
+        $vendidos = $raffle->numbers->where('paid', true)->count();
+        $libres   = $total - $raffle->numbers->whereIn('status', ['reserved', 'sold'])->count();
+
+        $mensaje .= "\n━━━━━━━━━━━━━━━━━━━━━\n";
+        $mensaje .= "💰 *Precio por número:* Gs. {$precio}\n";
+        $mensaje .= "💳 *Titular:* Junior Enciso\n";
+        $mensaje .= "🔑 *Alias:* 7130138\n";
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+        $mensaje .= "📊 *ESTADO DEL SORTEO:*\n";
+        $mensaje .= "🟢 Números disponibles: *{$libres}* de {$total}\n";
+        $mensaje .= "🔴 Ya vendidos: *{$vendidos}*\n";
+        $mensaje .= "⚡ *¡Date prisa, se agotan rápido!*\n\n";
+
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
+        $mensaje .= "🎫 *LISTA DE NÚMEROS:*\n";
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
+
+        $numbers = $raffle->numbers->sortBy(fn($n) => (int) $n->number);
+
+        foreach ($numbers as $number) {
+            if ($number->paid) {
+                $mensaje .= "{$number->number} - {$number->customer_name} 💵\n";
+            } elseif ($number->status === 'reserved' && $number->customer_name) {
+                $mensaje .= "{$number->number} - {$number->customer_name}\n";
+            } else {
+                $mensaje .= "{$number->number}\n";
+            }
+        }
+
+        $mensaje .= "\n━━━━━━━━━━━━━━━━━━━━━\n";
+        $mensaje .= "💵 Pagado confirmado\n";
+        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $mensaje .= "🚀 *¿QUERÉS PARTICIPAR?*\n";
+        $mensaje .= "👉 Elegí tu número favorito\n";
+        $mensaje .= "💸 Realizá tu transferencia\n";
+        $mensaje .= "📩 Envianos tu comprobante\n";
+        $mensaje .= "✅ ¡Y listo, ya estás participando!\n\n";
+        $mensaje .= "⚠️ _Las reservas vencen a los 15 minutos sin pago confirmado._\n";
+        $mensaje .= "🍀 *¡Buena suerte a todos!* 🍀\n";
+
+        return response()->json(['mensaje' => $mensaje]);
+    }
+
     // 🎯 LÓGICA INTERNA — sortear un premio específico
     private function sortearPremio(Request $request, Raffle $raffle, $soldNumbers)
     {

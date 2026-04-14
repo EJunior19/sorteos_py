@@ -60,6 +60,9 @@ Route::middleware('admin.auth')->group(function () {
     // Confirmar pago (admin y colaborador)
     Route::post('/admin/confirmar/{id}', [AdminController::class, 'confirmarPago'])->name('admin.confirmarPago');
 
+    // Generar mensaje WhatsApp (admin y colaborador)
+    Route::get('/admin/whatsapp/{id}', [AdminController::class, 'generarMensajeWhatsapp'])->name('admin.whatsapp');
+
     // Solo admin
     Route::middleware('admin.only')->group(function () {
 

@@ -23,6 +23,13 @@
         <a href="/admin/create" class="bg-yellow-400 text-black px-3 py-2 rounded text-sm font-bold">
             + Crear
         </a>
+        <button
+            id="btn-whatsapp"
+            onclick="enviarWhatsapp({{ $raffle->id ?? 0 }})"
+            @if(!isset($raffle) || !$raffle) disabled @endif
+            class="bg-green-500 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition flex items-center gap-2">
+            📲 WhatsApp
+        </button>
         <a href="/admin/logout" class="bg-red-500 px-3 py-2 rounded text-sm font-bold text-white">
             Salir
         </a>
@@ -137,5 +144,37 @@
     </div>
 
 @endif
+
+<script>
+async function enviarWhatsapp(raffleId) {
+    if (!raffleId) return;
+    const btn = document.getElementById('btn-whatsapp');
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generando...';
+    try {
+        const response = await fetch(`/admin/whatsapp/${raffleId}`);
+        if (!response.ok) throw new Error('Error');
+        const data = await response.json();
+        await navigator.clipboard.writeText(data.mensaje);
+        btn.innerHTML = '✅ ¡Copiado!';
+        btn.classList.remove('bg-green-500','hover:bg-green-400');
+        btn.classList.add('bg-green-700');
+        setTimeout(() => {
+            window.open('https://chat.whatsapp.com/IW4f2FC2Nwj6bbcWuAlLeD', '_blank');
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+            btn.classList.remove('bg-green-700');
+            btn.classList.add('bg-green-500','hover:bg-green-400');
+        }, 1000);
+    } catch (error) {
+        btn.innerHTML = '❌ Error';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
+        }, 2000);
+    }
+}
+</script>
 
 @endsection
