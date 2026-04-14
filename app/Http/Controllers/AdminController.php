@@ -206,7 +206,7 @@ class AdminController extends Controller
     public function generarMensajeWhatsapp($id)
     {
         $raffle = Raffle::with(['numbers', 'prizes' => function ($q) {
-            $q->orderByDesc('order');
+            $q->orderBy('order', 'desc');
         }])->findOrFail($id);
 
         $mensaje  = "🎰✨ *¡SORTEO EN CURSO!* ✨🎰\n";
@@ -219,14 +219,12 @@ class AdminController extends Controller
         $emojis = ['🥇','🥈','🥉','🎁','🎀','🌟','💫','✨','🎯','🎪',
                    '🎨','🎭','🎬','🎤','🎧','🎸','🎺','🎻','🥁','🎹'];
 
-        foreach ($raffle->prizes as $index => $prize) {
-            $emoji  = $emojis[$index] ?? '🎁';
-            $orden  = ($index + 1) . '°';
-            $mensaje .= "{$emoji} *{$orden} Premio:* {$prize->name}";
-            if ($prize->description) {
-                $mensaje .= " _{$prize->description}_";
-            }
-            $mensaje .= "\n";
+        $prizes = $raffle->prizes->sortByDesc('order')->values();
+
+        foreach ($prizes as $index => $prize) {
+            $emoji = $emojis[$index] ?? '🎁';
+            $orden = ($index + 1) . '°';
+            $mensaje .= "{$emoji} *{$orden} Premio:* {$prize->description}\n";
         }
 
         $precio   = number_format($raffle->price, 0, ',', '.');
