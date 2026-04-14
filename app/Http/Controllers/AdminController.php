@@ -269,7 +269,6 @@ class AdminController extends Controller
         $mensaje .= "💸 Realizá tu transferencia\n";
         $mensaje .= "📩 Envianos tu comprobante\n";
         $mensaje .= "✅ ¡Y listo, ya estás participando!\n\n";
-        $mensaje .= "⚠️ _Las reservas vencen a los 15 minutos sin pago confirmado._\n";
         $mensaje .= "🍀 *¡Buena suerte a todos!* 🍀\n";
 
         return response()->json(['mensaje' => $mensaje]);
