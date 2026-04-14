@@ -227,21 +227,13 @@ class AdminController extends Controller
             $mensaje .= "{$emoji} *{$orden} Premio:* {$prize->description}\n";
         }
 
-        $precio   = number_format($raffle->price, 0, ',', '.');
-        $total    = $raffle->numbers->count();
-        $vendidos = $raffle->numbers->where('paid', true)->count();
-        $libres   = $total - $raffle->numbers->whereIn('status', ['reserved', 'sold'])->count();
+        $precio = number_format($raffle->price, 0, ',', '.');
 
         $mensaje .= "\n━━━━━━━━━━━━━━━━━━━━━\n";
         $mensaje .= "💰 *Precio por número:* Gs. {$precio}\n";
         $mensaje .= "💳 *Titular:* Junior Enciso\n";
         $mensaje .= "🔑 *Alias:* 7130138\n";
         $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
-
-        $mensaje .= "📊 *ESTADO DEL SORTEO:*\n";
-        $mensaje .= "🟢 Números disponibles: *{$libres}* de {$total}\n";
-        $mensaje .= "🔴 Ya vendidos: *{$vendidos}*\n";
-        $mensaje .= "⚡ *¡Date prisa, se agotan rápido!*\n\n";
 
         $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
         $mensaje .= "🎫 *LISTA DE NÚMEROS:*\n";
