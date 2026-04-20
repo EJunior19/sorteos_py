@@ -12,7 +12,7 @@ class RaffleController extends Controller
     {
         $raffles = Raffle::whereIn('status', ['active', 'finished'])
             ->with(['numbers' => function ($q) {
-                $q->select('id', 'raffle_id', 'number', 'status');
+                $q->select('id', 'raffle_id', 'number', 'status', 'customer_name');
             }])
             ->latest()
             ->get();
@@ -30,17 +30,20 @@ class RaffleController extends Controller
     public function play($id)
     {
         $raffle = Raffle::where('status', 'active')
-            ->with('numbers')
+            ->with(['numbers' => function ($q) {
+                $q->select('id', 'raffle_id', 'number', 'status', 'customer_name');
+            }])
             ->findOrFail($id);
 
         $total    = $raffle->numbers->count();
         $sold     = $raffle->numbers->where('status', 'sold')->count();
         $reserved = $raffle->numbers->where('status', 'reserved')->count();
         $free     = $raffle->numbers->where('status', 'free')->count();
-        $progress = $total > 0 ? round((($sold + $reserved) / $total) * 100) : 0;
+        $assigned = $raffle->numbers->filter(fn($n) => !empty($n->customer_name))->count();
+        $progress = $total > 0 ? round(($assigned / $total) * 100) : 0;
 
         return view('raffle.play', compact(
-            'raffle', 'total', 'sold', 'reserved', 'free', 'progress'
+            'raffle', 'total', 'sold', 'reserved', 'free', 'assigned', 'progress'
         ));
     }
 

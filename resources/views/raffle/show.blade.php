@@ -276,7 +276,7 @@
             </div>
 
             <div class="bg-[#141414] rounded-xl p-3 text-center border border-yellow-500/20">
-                <p class="text-xl font-black text-yellow-400">{{ $sold + $reserved }}</p>
+                <p class="text-xl font-black text-yellow-400">{{ $raffle->numbers->filter(fn($n) => !empty($n->customer_name))->count() }}</p>
                 <p class="text-xs text-gray-500 mt-0.5">Vendidos</p>
             </div>
 

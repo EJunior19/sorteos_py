@@ -87,6 +87,70 @@
             <div id="prizesContainer" class="space-y-3"></div>
         </div>
 
+        <!-- ── PROMO ─────────────────────────────────────────────────── -->
+        <div class="border-t border-yellow-500/30 pt-4">
+
+            <div class="flex items-center gap-3 mb-3">
+                <input
+                    type="checkbox"
+                    id="promoEnabled"
+                    name="promo_enabled"
+                    value="1"
+                    {{ old('promo_enabled') ? 'checked' : '' }}
+                    onchange="togglePromo(this.checked)"
+                    class="w-5 h-5 accent-yellow-400 cursor-pointer"
+                >
+                <label for="promoEnabled" class="text-white font-bold cursor-pointer">
+                    🎁 Activar promo especial
+                </label>
+            </div>
+
+            <div id="promoFields" class="{{ old('promo_enabled') ? '' : 'hidden' }} space-y-3 pl-2">
+
+                <select
+                    name="promo_type"
+                    class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+                >
+                    <option value="early_numbers" {{ old('promo_type', 'early_numbers') === 'early_numbers' ? 'selected' : '' }}>
+                        Primeros números adquiridos
+                    </option>
+                </select>
+
+                <input
+                    type="number"
+                    name="promo_limit"
+                    min="1"
+                    placeholder="Primeros X números que participan (ej: 20)"
+                    value="{{ old('promo_limit') }}"
+                    class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+                >
+
+                <input
+                    type="number"
+                    name="promo_winner_count"
+                    min="1"
+                    placeholder="Cantidad de ganadores de la promo (ej: 1)"
+                    value="{{ old('promo_winner_count') }}"
+                    class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+                >
+
+                <input
+                    type="text"
+                    name="promo_prize_text"
+                    placeholder="Premio de la promo (ej: Canasta navideña)"
+                    value="{{ old('promo_prize_text') }}"
+                    class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+                >
+
+                <p class="text-gray-500 text-xs">
+                    Los primeros <strong class="text-gray-300">X</strong> números en reservar participan.
+                    Solo los confirmados como pagados entran al sorteo de la promo.
+                    Se ejecuta al final, después de todos los premios principales.
+                </p>
+
+            </div>
+        </div>
+
         <button
             type="submit"
             class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold mt-2"
@@ -186,6 +250,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Render inicial
     renderPrizes(parseInt(prizesCountInput.value) || 1);
 });
+
+function togglePromo(enabled) {
+    document.getElementById('promoFields').classList.toggle('hidden', !enabled);
+}
 </script>
 
 @endsection

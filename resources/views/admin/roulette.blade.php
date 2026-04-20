@@ -17,6 +17,11 @@
     // Premios ordenados de menor a mayor (orden de sorteo: último primero)
     $prizes        = $raffle->prizes->sortBy('order')->values();
     $isMultiPrize  = $prizes->isNotEmpty();
+
+    // Promo
+    $promoEnabled   = (bool) ($raffle->promo_enabled ?? false);
+    $promoResults   = $raffle->promoResults ?? collect();
+    $allPrizesDrawn = $allPrizesDrawn ?? false;
 @endphp
 
 <div class="max-w-6xl mx-auto px-4 py-8 text-center">
@@ -109,6 +114,45 @@
     </div>
     @endif
 
+    @if($promoEnabled)
+    <!-- SECCIÓN PROMO — oculta hasta que termina el sorteo principal -->
+    <div id="promoSection" class="{{ $allPrizesDrawn ? '' : 'hidden' }} mt-6 max-w-2xl mx-auto">
+
+        @if($promoResults->isEmpty())
+        {{-- Promo pendiente --}}
+        <div id="promoPending" class="bg-yellow-900/20 border border-yellow-500/40 rounded-2xl p-5 text-center">
+            <div class="text-yellow-400 font-bold text-lg mb-1">🎁 {{ $raffle->promo_prize_text }}</div>
+            <div class="text-gray-400 text-sm mb-4">
+                Primeros {{ $raffle->promo_limit }} reservados &middot; {{ $raffle->promo_winner_count }} ganador(es)
+            </div>
+            <button id="promoBtn"
+                onclick="runPromo()"
+                class="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-3 rounded-xl font-bold transition">
+                🎁 Sortear Promo
+            </button>
+        </div>
+
+        @else
+        {{-- Resultados ya guardados (recarga de página) --}}
+        <div class="bg-yellow-900/20 border border-yellow-500/40 rounded-2xl p-5">
+            <h3 class="text-yellow-400 font-bold text-center mb-3">🎁 Ganadores de la Promo</h3>
+            <div class="space-y-2">
+                @foreach($promoResults as $r)
+                <div class="flex justify-between items-center bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+                    <div class="text-yellow-300 font-bold text-sm">{{ $r->prize_text }}</div>
+                    <div class="text-right">
+                        <div class="text-white font-black">Nº {{ str_pad($r->raffleNumber->number ?? '?', 2, '0', STR_PAD_LEFT) }}</div>
+                        <div class="text-gray-300 text-xs">{{ $r->customer_name }}</div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+    </div>
+    @endif
+
     <!-- BOTÓN PRINCIPAL -->
     <button id="spinBtn"
         class="mt-8 bg-yellow-400 hover:bg-yellow-300 text-black px-8 py-4 rounded-2xl font-extrabold text-lg shadow-lg transition transform hover:scale-105">
@@ -157,11 +201,12 @@
 
 <script>
 // ── Datos desde PHP ──────────────────────────────────────────────────────────
-const baseItems           = @json($items);
-const raffleId            = @json($raffle->id);
-const csrfToken           = @json(csrf_token());
+const baseItems            = @json($items);
+const raffleId             = @json($raffle->id);
+const csrfToken            = @json(csrf_token());
 const existingWinnerNumber = @json($raffle->winner_number);
-const isMultiPrize        = @json($isMultiPrize);
+const isMultiPrize         = @json($isMultiPrize);
+const promoEnabled         = @json($promoEnabled);
 
 // Premios en orden de sorteo: index 0 = último premio (order=1), último index = 1er premio
 let prizes = @json($prizes->values());
@@ -318,6 +363,62 @@ function showFinalSummary() {
     finalSummary.classList.remove('hidden');
 }
 
+// ── Promo ─────────────────────────────────────────────────────────────────────
+function showPromoSection() {
+    const section = document.getElementById('promoSection');
+    if (section) section.classList.remove('hidden');
+}
+
+async function runPromo() {
+    const promoBtn = document.getElementById('promoBtn');
+    promoBtn.disabled    = true;
+    promoBtn.textContent = '⏳ Sorteando...';
+
+    let response;
+    try {
+        response = await fetch(`/admin/sortear-promo/${raffleId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({ _token: csrfToken }).toString(),
+        });
+    } catch (e) {
+        alert('No se pudo conectar con el servidor.');
+        promoBtn.disabled    = false;
+        promoBtn.textContent = '🎁 Sortear Promo';
+        return;
+    }
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        alert(data.message ?? 'Error al ejecutar la promo.');
+        promoBtn.disabled    = false;
+        promoBtn.textContent = '🎁 Sortear Promo';
+        return;
+    }
+
+    const winnersHtml = data.winners.map(w => `
+        <div class="flex justify-between items-center bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3">
+            <div class="text-yellow-300 font-bold text-sm">${w.prize_text}</div>
+            <div class="text-right">
+                <div class="text-white font-black">Nº ${String(w.number).padStart(2, '0')}</div>
+                <div class="text-gray-300 text-xs">${w.customer_name}</div>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('promoSection').innerHTML = `
+        <div class="bg-yellow-900/20 border border-yellow-500/40 rounded-2xl p-5">
+            <h3 class="text-yellow-400 font-bold text-center mb-3">🎁 Ganadores de la Promo</h3>
+            <div class="space-y-2">${winnersHtml}</div>
+        </div>
+    `;
+}
+
 function resetUI() {
     isRunning = false;
     clearInterval(countdownInterval);
@@ -470,6 +571,7 @@ async function runDraw() {
                 if (currentPrizeDesc)  currentPrizeDesc.textContent  = '';
 
                 showFinalSummary();
+                if (promoEnabled) showPromoSection();
 
                 spinBtn.textContent = '⬅️ VOLVER AL PANEL';
                 spinBtn.disabled    = false;
@@ -496,6 +598,7 @@ async function runDraw() {
             spinBtn.disabled    = false;
             spinBtn.classList.remove('opacity-60','cursor-not-allowed');
             spinBtn.onclick = () => { window.location.href = '/admin'; };
+            if (promoEnabled) showPromoSection();
         }
 
     }, 6000);

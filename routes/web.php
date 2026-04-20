@@ -75,5 +75,8 @@ Route::middleware('admin.auth')->group(function () {
 
         // Ejecutar sorteo
         Route::post('/admin/sortear/{id}', [AdminController::class, 'sortear'])->name('admin.sortear');
+
+        // Ejecutar sorteo de promo
+        Route::post('/admin/sortear-promo/{id}', [AdminController::class, 'ejecutarPromo'])->name('admin.sortearPromo');
     });
 });

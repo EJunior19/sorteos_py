@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Raffle;
 use App\Models\RaffleNumber;
 use App\Models\RafflePrize;
+use App\Models\RafflePromoResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +15,7 @@ class AdminController extends Controller
     // 📊 DASHBOARD
     public function dashboard()
     {
-        $raffle = Raffle::with(['numbers', 'prizes'])->latest()->first();
+        $raffle = Raffle::with(['numbers', 'prizes', 'promoResults.raffleNumber'])->latest()->first();
 
         if (!$raffle) {
             return view('admin.dashboard', [
@@ -32,11 +33,12 @@ class AdminController extends Controller
         $free     = $raffle->numbers->where('status', 'free')->count();
         $reserved = $raffle->numbers->where('status', 'reserved')->count();
         $sold     = $raffle->numbers->where('status', 'sold')->count();
+        $assigned = $raffle->numbers->whereNotNull('customer_name')->where('customer_name', '!=', '')->count();
         $revenue  = $sold * $raffle->price;
-        $progress = $total > 0 ? round((($sold + $reserved) / $total) * 100) : 0;
+        $progress = $total > 0 ? round(($assigned / $total) * 100) : 0;
 
         return view('admin.dashboard', compact(
-            'raffle', 'total', 'free', 'reserved', 'sold', 'revenue', 'progress'
+            'raffle', 'total', 'free', 'reserved', 'sold', 'assigned', 'revenue', 'progress'
         ));
     }
 
@@ -52,14 +54,21 @@ class AdminController extends Controller
         Log::info("🚀 INICIO STORE");
 
         $request->validate([
-            'name'              => 'required|string|max:255',
-            'price'             => 'required',
-            'total_numbers'     => 'required|integer|min:1',
-            'image'             => 'required|image|max:5120',
-            'prizes_count'      => 'required|integer|min:1|max:20',
-            'prizes'            => 'required|array|min:1',
-            'prizes.*.name'     => 'required|string|max:255',
+            'name'               => 'required|string|max:255',
+            'price'              => 'required',
+            'total_numbers'      => 'required|integer|min:1',
+            'image'              => 'required|image|max:5120',
+            'prizes_count'       => 'required|integer|min:1|max:20',
+            'prizes'             => 'required|array|min:1',
+            'prizes.*.name'      => 'required|string|max:255',
             'prizes.*.description' => 'nullable|string|max:255',
+            'titular_name'       => 'nullable|string|max:255',
+            'alias'              => 'nullable|string|max:255',
+            'promo_enabled'      => 'nullable|boolean',
+            'promo_type'         => 'nullable|string|in:early_numbers',
+            'promo_limit'        => 'nullable|integer|min:1',
+            'promo_winner_count' => 'nullable|integer|min:1',
+            'promo_prize_text'   => 'nullable|string|max:255',
         ]);
 
         $price = str_replace('.', '', $request->price);
@@ -73,13 +82,22 @@ class AdminController extends Controller
         }
 
         DB::transaction(function () use ($request, $price, $imagePath) {
+            $promoEnabled = $request->boolean('promo_enabled');
+
             $raffle = Raffle::create([
-                'name'          => $request->name,
-                'price'         => $price,
-                'total_numbers' => $request->total_numbers,
-                'image'         => $imagePath,
-                'status'        => 'active',
-                'prizes_count'  => $request->prizes_count,
+                'name'               => $request->name,
+                'price'              => $price,
+                'total_numbers'      => $request->total_numbers,
+                'image'              => $imagePath,
+                'status'             => 'active',
+                'prizes_count'       => $request->prizes_count,
+                'titular_name'       => $request->titular_name ?? 'Junior Enciso',
+                'alias'              => $request->alias ?? '7130138',
+                'promo_enabled'      => $promoEnabled,
+                'promo_type'         => $promoEnabled ? ($request->promo_type ?? 'early_numbers') : null,
+                'promo_limit'        => $promoEnabled ? $request->promo_limit : null,
+                'promo_winner_count' => $promoEnabled ? ($request->promo_winner_count ?? 1) : 0,
+                'promo_prize_text'   => $promoEnabled ? $request->promo_prize_text : null,
             ]);
 
             Log::info("🎯 SORTEO CREADO ID: " . $raffle->id);
@@ -87,20 +105,16 @@ class AdminController extends Controller
             // Generar números
             for ($i = 1; $i <= $raffle->total_numbers; $i++) {
                 $raffle->numbers()->create([
-                    'number' => str_pad($i, 2, '0', STR_PAD_LEFT),
+                    'number' => $i,
                     'status' => 'free',
                 ]);
             }
 
             // Crear premios
-            // El array viene del formulario en orden 1er→último pero
-            // los guardamos con order = posición real (1=último, N=1er premio)
             $prizes      = $request->prizes;
             $totalPrizes = count($prizes);
 
             foreach ($prizes as $index => $prizeData) {
-                // index 0 = 1er premio (mayor) → order = totalPrizes
-                // index N-1 = último premio (menor) → order = 1
                 $order = $totalPrizes - $index;
 
                 RafflePrize::create([
@@ -132,11 +146,12 @@ class AdminController extends Controller
             'expires_at' => null,
         ]);
 
-        $raffle = $num->raffle;
-        $total  = $raffle->numbers()->count();
-        $sold   = $raffle->numbers()->where('status', 'sold')->count();
+        $raffle   = $num->raffle;
+        $total    = $raffle->numbers()->count();
+        $sold     = $raffle->numbers()->where('status', 'sold')->count();
+        $assigned = $raffle->numbers()->whereNotNull('customer_name')->where('customer_name', '!=', '')->count();
 
-        Log::info("📊 PROGRESO: $sold / $total");
+        Log::info("📊 PROGRESO: $assigned asignados / $sold pagados / $total total");
 
         if ($total === $sold) {
             Log::info("🎰 TODO VENDIDO → REDIRECT RULETA");
@@ -150,9 +165,13 @@ class AdminController extends Controller
     // 🎰 VISTA SORTEO
     public function vistaSorteo($id)
     {
-        $raffle = Raffle::with(['numbers', 'prizes'])->findOrFail($id);
+        $raffle = Raffle::with(['numbers', 'prizes', 'promoResults.raffleNumber'])->findOrFail($id);
 
-        return view('admin.roulette', compact('raffle'));
+        $allPrizesDrawn = $raffle->prizes->isNotEmpty()
+            ? $raffle->prizes->every(fn($p) => !is_null($p->winner_number))
+            : !is_null($raffle->winner_number);
+
+        return view('admin.roulette', compact('raffle', 'allPrizesDrawn'));
     }
 
     // 🎯 SORTEAR — soporta legacy (1 premio) y múltiples premios
@@ -202,66 +221,147 @@ class AdminController extends Controller
         ]);
     }
 
-    // 📲 GENERAR MENSAJE WHATSAPP
+    // 📲 GENERAR MENSAJES WHATSAPP (frontend genera localmente, backend devuelve datos)
     public function generarMensajeWhatsapp($id)
     {
-        $raffle = Raffle::with(['numbers', 'prizes' => function ($q) {
-            $q->orderBy('order', 'desc');
-        }])->findOrFail($id);
+        $raffle = Raffle::with([
+            'numbers' => function ($query) {
+                $query->orderBy('number', 'asc');
+            },
+            'prizes' => function ($query) {
+                $query->reorder('order', 'desc');
+            }
+        ])->findOrFail($id);
 
-        $mensaje  = "🎰✨ *¡SORTEO EN CURSO!* ✨🎰\n";
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
-        $mensaje .= "🎟️ *{$raffle->name}*\n";
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
+        // Preparar datos para el frontend
+        $numbers = $raffle->numbers->map(function ($n) {
+            return [
+                'number'       => (int)$n->number,
+                'customer_name' => $n->customer_name ?? '',
+                'status'       => $n->status, // 'free', 'reserved', 'sold'
+            ];
+        })->toArray();
 
-        $mensaje .= "🏆 *PREMIOS INCREÍBLES:*\n";
+        $prizes = $raffle->prizes->map(function ($p) {
+            return [
+                'name'        => $p->name,
+                'description' => $p->description ?? '',
+            ];
+        })->toArray();
 
-        $emojis = ['🥇','🥈','🥉','🎁','🎀','🌟','💫','✨','🎯','🎪',
-                   '🎨','🎭','🎬','🎤','🎧','🎸','🎺','🎻','🥁','🎹'];
+        return response()->json([
+            'raffle_name'   => $raffle->name,
+            'price'         => (int)$raffle->price,
+            'titular_name'  => $raffle->titular_name ?? 'Junior Enciso',
+            'alias'         => $raffle->alias ?? '7130138',
+            'prizes'        => $prizes,
+            'numbers'       => $numbers,
+        ]);
+    }
 
-        $prizes = $raffle->prizes->sortByDesc('order')->values();
+    // 🎁 PROMO: obtener participantes (primeros promo_limit por reserved_at ASC)
+    private function getPromoParticipants(Raffle $raffle)
+    {
+        return $raffle->numbers()
+            ->whereNotNull('reserved_at')
+            ->orderBy('reserved_at', 'asc')
+            ->take($raffle->promo_limit)
+            ->get();
+    }
 
-        foreach ($prizes as $index => $prize) {
-            $emoji = $emojis[$index] ?? '🎁';
-            $orden = ($index + 1) . '°';
-            $mensaje .= "{$emoji} *{$orden} Premio:* {$prize->description}\n";
+    // 🎁 PROMO: de los participantes, filtrar sold y elegir aleatoriamente
+    private function drawPromo(Raffle $raffle)
+    {
+        $participants = $this->getPromoParticipants($raffle);
+        $eligible     = $participants->where('status', 'sold');
+
+        if ($eligible->isEmpty()) {
+            return collect();
         }
 
-        $precio = number_format($raffle->price, 0, ',', '.');
+        $count = min($raffle->promo_winner_count, $eligible->count());
 
-        $mensaje .= "\n━━━━━━━━━━━━━━━━━━━━━\n";
-        $mensaje .= "💰 *Precio por número:* Gs. {$precio}\n";
-        $mensaje .= "💳 *Titular:* Junior Enciso\n";
-        $mensaje .= "🔑 *Alias:* 7130138\n";
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
+        return $eligible->shuffle()->take($count);
+    }
 
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
-        $mensaje .= "🎫 *LISTA DE NÚMEROS:*\n";
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    // 🎁 PROMO: endpoint para ejecutar el sorteo de promo
+    public function ejecutarPromo(Request $request, $id)
+    {
+        $raffle = Raffle::with(['numbers', 'prizes', 'promoResults'])->findOrFail($id);
 
-        $numbers = $raffle->numbers->sortBy(fn($n) => (int) $n->number);
+        if (!$raffle->promo_enabled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La promo no está habilitada para este sorteo.',
+            ], 422);
+        }
 
-        foreach ($numbers as $number) {
-            if ($number->paid) {
-                $mensaje .= "{$number->number} - {$number->customer_name} 💵\n";
-            } elseif ($number->status === 'reserved' && $number->customer_name) {
-                $mensaje .= "{$number->number} - {$number->customer_name}\n";
-            } else {
-                $mensaje .= "{$number->number}\n";
+        // El sorteo principal debe estar completo antes de ejecutar la promo
+        if ($raffle->prizes->isNotEmpty()) {
+            $allDrawn = $raffle->prizes->every(fn($p) => !is_null($p->winner_number));
+            if (!$allDrawn) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El sorteo principal no terminó. Completá todos los premios primero.',
+                ], 422);
+            }
+        } else {
+            if (!$raffle->winner_number) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El sorteo principal no terminó. Ejecutá el sorteo primero.',
+                ], 422);
             }
         }
 
-        $mensaje .= "\n━━━━━━━━━━━━━━━━━━━━━\n";
-        $mensaje .= "💵 Pagado confirmado\n";
-        $mensaje .= "━━━━━━━━━━━━━━━━━━━━━\n\n";
-        $mensaje .= "🚀 *¿QUERÉS PARTICIPAR?*\n";
-        $mensaje .= "👉 Elegí tu número favorito\n";
-        $mensaje .= "💸 Realizá tu transferencia\n";
-        $mensaje .= "📩 Envianos tu comprobante\n";
-        $mensaje .= "✅ ¡Y listo, ya estás participando!\n\n";
-        $mensaje .= "🍀 *¡Buena suerte a todos!* 🍀\n";
+        // Si la promo ya fue ejecutada, devolver los resultados guardados
+        if ($raffle->promoResults->isNotEmpty()) {
+            $raffle->load('promoResults.raffleNumber');
+            $winners = $raffle->promoResults->map(fn($r) => [
+                'number'        => $r->raffleNumber->number ?? '?',
+                'customer_name' => $r->customer_name,
+                'prize_text'    => $r->prize_text,
+            ]);
 
-        return response()->json(['mensaje' => $mensaje]);
+            return response()->json([
+                'success'       => true,
+                'already_drawn' => true,
+                'winners'       => $winners,
+            ]);
+        }
+
+        $winners = $this->drawPromo($raffle);
+
+        if ($winners->isEmpty()) {
+            $limit = $raffle->promo_limit;
+            return response()->json([
+                'success' => false,
+                'message' => "Ninguno de los primeros {$limit} números reservados está confirmado como pagado. No hay participantes elegibles para la promo.",
+            ], 422);
+        }
+
+        $savedWinners = [];
+        foreach ($winners as $winner) {
+            RafflePromoResult::create([
+                'raffle_id'        => $raffle->id,
+                'raffle_number_id' => $winner->id,
+                'customer_name'    => $winner->customer_name ?? 'Participante',
+                'prize_text'       => $raffle->promo_prize_text ?? 'Premio promo',
+            ]);
+
+            $savedWinners[] = [
+                'number'        => $winner->number,
+                'customer_name' => $winner->customer_name ?? 'Participante',
+                'prize_text'    => $raffle->promo_prize_text ?? 'Premio promo',
+            ];
+
+            Log::info("🎁 PROMO GANADOR: #{$winner->number} - " . ($winner->customer_name ?? 'Participante'));
+        }
+
+        return response()->json([
+            'success' => true,
+            'winners' => $savedWinners,
+        ]);
     }
 
     // 🎯 LÓGICA INTERNA — sortear un premio específico
@@ -324,7 +424,6 @@ class AdminController extends Controller
         $allDrawn = $raffle->prizes->every(fn($p) => !is_null($p->winner_number));
 
         if ($allDrawn) {
-            // Guardamos en winner_number/winner_name el 1er premio (order máximo) para compatibilidad
             $mainPrize = $raffle->prizes->sortByDesc('order')->first();
             $raffle->update([
                 'winner_number' => $mainPrize->winner_number,

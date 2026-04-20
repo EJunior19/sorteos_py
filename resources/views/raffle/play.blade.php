@@ -28,7 +28,8 @@
         $sold = $raffle->numbers->where('status','sold')->count();
         $reserved = $raffle->numbers->where('status','reserved')->count();
         $free = $raffle->numbers->where('status','free')->count();
-        $percent = $total > 0 ? (($sold + $reserved) / $total) * 100 : 0;
+        $assigned = $raffle->numbers->filter(fn($n) => !empty($n->customer_name))->count();
+        $percent = $total > 0 ? ($assigned / $total) * 100 : 0;
     @endphp
 
     <!-- 🔥 METRICAS -->
@@ -78,7 +79,7 @@
 
         <!-- TEXTO EXTRA -->
         <p class="text-xs text-gray-500 mt-2 text-center">
-            {{ $sold + $reserved }} de {{ $total }} ocupados
+            {{ $assigned }} de {{ $total }} ocupados
         </p>
 
     </div>

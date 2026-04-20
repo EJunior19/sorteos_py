@@ -16,6 +16,17 @@ class Raffle extends Model
         'winner_number',
         'winner_name',
         'prizes_count',
+        'titular_name',
+        'alias',
+        'promo_enabled',
+        'promo_type',
+        'promo_limit',
+        'promo_winner_count',
+        'promo_prize_text',
+    ];
+
+    protected $casts = [
+        'promo_enabled' => 'boolean',
     ];
 
     public function numbers()
@@ -26,6 +37,11 @@ class Raffle extends Model
     public function prizes()
     {
         return $this->hasMany(RafflePrize::class)->orderBy('order');
+    }
+
+    public function promoResults()
+    {
+        return $this->hasMany(RafflePromoResult::class);
     }
 
     /**

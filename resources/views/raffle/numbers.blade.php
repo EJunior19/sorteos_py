@@ -107,9 +107,7 @@ async function reservarNumeros() {
             return;
         }
 
-        const msg = `Hola quiero reservar:%0A%0A🎁 {{ $raffle->name }}%0A🔢 ${seleccionados.join(', ')}%0A👤 ${nombre}`;
-        window.open(`https://wa.me/595986770148?text=${msg}`, '_blank');
-
+        alert('✅ Números reservados correctamente');
         window.location.reload();
 
     } catch (error) {

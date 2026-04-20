@@ -28,9 +28,9 @@
         @forelse($activeRaffles as $r)
 
             @php
-                $sold = $r->numbers->where('status','sold')->count();
+                $assigned = $r->numbers->filter(fn($n) => !empty($n->customer_name))->count();
                 $total = $r->total_numbers;
-                $percent = $total > 0 ? ($sold / $total) * 100 : 0;
+                $percent = $total > 0 ? ($assigned / $total) * 100 : 0;
             @endphp
 
             <div class="bg-[#141414] rounded-2xl border border-yellow-500/20 shadow-lg overflow-hidden">
