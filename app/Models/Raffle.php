@@ -8,8 +8,15 @@ class Raffle extends Model
 {
     protected $fillable = [
         'name',
+        'category',
+        'original_product',
+        'raffle_type',
         'price',
         'total_numbers',
+        'cost_gs',
+        'real_profit_gs',
+        'sale_started_at',
+        'sold_out_at',
         'draw_date',
         'status',
         'image',
@@ -23,10 +30,15 @@ class Raffle extends Model
         'promo_limit',
         'promo_winner_count',
         'promo_prize_text',
+        'discount_active',
+        'discount_pct',
     ];
 
     protected $casts = [
-        'promo_enabled' => 'boolean',
+        'promo_enabled'   => 'boolean',
+        'discount_active' => 'boolean',
+        'sale_started_at' => 'datetime',
+        'sold_out_at'     => 'datetime',
     ];
 
     public function numbers()

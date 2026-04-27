@@ -7,6 +7,7 @@ use App\Models\RaffleNumber;
 use App\Models\RafflePrize;
 use App\Models\RafflePromoResult;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -29,16 +30,30 @@ class AdminController extends Controller
             ]);
         }
 
-        $total    = $raffle->numbers->count();
-        $free     = $raffle->numbers->where('status', 'free')->count();
-        $reserved = $raffle->numbers->where('status', 'reserved')->count();
-        $sold     = $raffle->numbers->where('status', 'sold')->count();
-        $assigned = $raffle->numbers->whereNotNull('customer_name')->where('customer_name', '!=', '')->count();
+        $stats = Cache::remember("dashboard_stats_{$raffle->id}", 30, function () use ($raffle) {
+            $total    = $raffle->numbers->count();
+            $free     = $raffle->numbers->where('status', 'free')->count();
+            $reserved = $raffle->numbers->where('status', 'reserved')->count();
+            $sold     = $raffle->numbers->where('status', 'sold')->count();
+            $assigned = $raffle->numbers->whereNotNull('customer_name')->where('customer_name', '!=', '')->count();
+            return compact('total', 'free', 'reserved', 'sold', 'assigned');
+        });
+
+        $total    = $stats['total'];
+        $free     = $stats['free'];
+        $reserved = $stats['reserved'];
+        $sold     = $stats['sold'];
+        $assigned = $stats['assigned'];
         $revenue  = $sold * $raffle->price;
         $progress = $total > 0 ? round(($assigned / $total) * 100) : 0;
 
+        $paid        = $raffle->numbers->where('paid', 1)->count();
+        $pendientes  = $raffle->numbers->whereIn('status', ['sold', 'reserved'])->where('paid', 0)->count();
+        $totalCost   = $raffle->prizes->sum('cost');
+
         return view('admin.dashboard', compact(
-            'raffle', 'total', 'free', 'reserved', 'sold', 'assigned', 'revenue', 'progress'
+            'raffle', 'total', 'free', 'reserved', 'sold', 'assigned', 'revenue', 'progress',
+            'paid', 'pendientes', 'totalCost'
         ));
     }
 
@@ -146,7 +161,8 @@ class AdminController extends Controller
             'expires_at' => null,
         ]);
 
-        $raffle   = $num->raffle;
+        $raffle = $num->raffle;
+        Cache::forget("dashboard_stats_{$raffle->id}");
         $total    = $raffle->numbers()->count();
         $sold     = $raffle->numbers()->where('status', 'sold')->count();
         $assigned = $raffle->numbers()->whereNotNull('customer_name')->where('customer_name', '!=', '')->count();
@@ -206,11 +222,13 @@ class AdminController extends Controller
 
         $winner = $soldNumbers->random();
 
-        $raffle->update([
-            'winner_number' => $winner->number,
-            'winner_name'   => $winner->customer_name ?? 'Participante',
-            'status'        => 'finished',
-        ]);
+        DB::transaction(function () use ($raffle, $winner) {
+            $raffle->update([
+                'winner_number' => $winner->number,
+                'winner_name'   => $winner->customer_name ?? 'Participante',
+                'status'        => 'finished',
+            ]);
+        });
 
         Log::info("🏆 GANADOR LEGACY: " . $winner->number . ' - ' . ($winner->customer_name ?? 'Participante'));
 
@@ -226,37 +244,68 @@ class AdminController extends Controller
     {
         $raffle = Raffle::with([
             'numbers' => function ($query) {
-                $query->orderBy('number', 'asc');
+                $query->orderByRaw('CAST(number AS INTEGER) ASC');
             },
-            'prizes' => function ($query) {
-                $query->reorder('order', 'desc');
-            }
+            'prizes',
         ])->findOrFail($id);
 
         // Preparar datos para el frontend
         $numbers = $raffle->numbers->map(function ($n) {
             return [
-                'number'       => (int)$n->number,
+                'number'        => (int)$n->number,
                 'customer_name' => $n->customer_name ?? '',
-                'status'       => $n->status, // 'free', 'reserved', 'sold'
+                'status'        => $n->status,
             ];
         })->toArray();
 
-        $prizes = $raffle->prizes->map(function ($p) {
+        // Ordenar premios de mayor a menor (1° Premio = mejor premio)
+        $prizes = $raffle->prizes->sortByDesc('order')->values()->map(function ($p) {
             return [
-                'name'        => $p->name,
-                'description' => $p->description ?? '',
+                'name'          => $p->name,
+                'description'   => $p->description ?? '',
+                'winner_number' => $p->winner_number,
+                'winner_name'   => $p->winner_name,
             ];
         })->toArray();
 
         return response()->json([
-            'raffle_name'   => $raffle->name,
-            'price'         => (int)$raffle->price,
-            'titular_name'  => $raffle->titular_name ?? 'Junior Enciso',
-            'alias'         => $raffle->alias ?? '7130138',
-            'prizes'        => $prizes,
-            'numbers'       => $numbers,
+            'raffle_name'      => $raffle->name,
+            'price'            => (int)$raffle->price,
+            'titular_name'     => $raffle->titular_name ?? 'Junior Enciso',
+            'alias'            => $raffle->alias ?? '7130138',
+            'prizes'           => $prizes,
+            'numbers'          => $numbers,
+            'discount_active'  => (bool)$raffle->discount_active,
+            'discount_pct'     => (int)$raffle->discount_pct,
         ]);
+    }
+
+    public function guardarCostos($id, \Illuminate\Http\Request $request)
+    {
+        $raffle = Raffle::with('prizes')->findOrFail($id);
+        $costs  = $request->input('costs', []);
+        foreach ($raffle->prizes as $prize) {
+            if (isset($costs[$prize->id])) {
+                $prize->update(['cost' => max(0, (int) $costs[$prize->id])]);
+            }
+        }
+        $total = $raffle->prizes->sum(fn($p) => (int)($costs[$p->id] ?? $p->cost));
+        return response()->json(['ok' => true, 'total_cost' => $total]);
+    }
+
+    public function activarDescuento($id, \Illuminate\Http\Request $request)
+    {
+        $request->validate(['pct' => 'required|integer|min:1|max:99']);
+        $raffle = Raffle::findOrFail($id);
+        $raffle->update(['discount_active' => true, 'discount_pct' => $request->pct]);
+        return response()->json(['ok' => true, 'pct' => $request->pct]);
+    }
+
+    public function desactivarDescuento($id)
+    {
+        $raffle = Raffle::findOrFail($id);
+        $raffle->update(['discount_active' => false, 'discount_pct' => 0]);
+        return response()->json(['ok' => true]);
     }
 
     // 🎁 PROMO: obtener participantes (primeros promo_limit por reserved_at ASC)
@@ -391,16 +440,15 @@ class AdminController extends Controller
             ]);
         }
 
-        // Excluir participantes que ya ganaron otro premio en este sorteo
-        $alreadyWonNames = $raffle->prizes
+        // Excluir participantes que ya ganaron 2 veces (máximo permitido)
+        $winsPerName = $raffle->prizes
             ->whereNotNull('winner_name')
-            ->pluck('winner_name')
-            ->map(fn($n) => strtolower(trim($n)))
-            ->toArray();
+            ->groupBy(fn($p) => strtolower(trim($p->winner_name)))
+            ->map(fn($group) => $group->count());
 
-        $eligible = $soldNumbers->filter(function ($num) use ($alreadyWonNames) {
+        $eligible = $soldNumbers->filter(function ($num) use ($winsPerName) {
             $name = strtolower(trim($num->customer_name ?? ''));
-            return !in_array($name, $alreadyWonNames);
+            return $winsPerName->get($name, 0) < 2;
         });
 
         if ($eligible->isEmpty()) {

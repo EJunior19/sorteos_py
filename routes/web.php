@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RaffleController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DraftController;
 use App\Http\Controllers\ReservationController;
 
 /*
@@ -40,7 +41,7 @@ Route::post('/reservar', [ReservationController::class, 'reservar'])->name('rese
 
 // Login
 Route::get('/admin/login', [AuthController::class, 'login'])->name('admin.login');
-Route::post('/admin/login', [AuthController::class, 'doLogin'])->name('admin.doLogin');
+Route::post('/admin/login', [AuthController::class, 'doLogin'])->name('admin.doLogin')->middleware('throttle:5,15');
 
 // Logout
 Route::get('/admin/logout', [AuthController::class, 'logout'])->name('admin.logout');
@@ -63,12 +64,25 @@ Route::middleware('admin.auth')->group(function () {
     // Generar mensaje WhatsApp (admin y colaborador)
     Route::get('/admin/whatsapp/{id}', [AdminController::class, 'generarMensajeWhatsapp'])->name('admin.whatsapp');
 
+    // Promoción de descuento
+    Route::post('/admin/descuento/{id}', [AdminController::class, 'activarDescuento'])->name('admin.activarDescuento');
+    Route::delete('/admin/descuento/{id}', [AdminController::class, 'desactivarDescuento'])->name('admin.desactivarDescuento');
+
+    // Costos de premios
+    Route::post('/admin/costos/{id}', [AdminController::class, 'guardarCostos'])->name('admin.guardarCostos');
+
     // Solo admin
     Route::middleware('admin.only')->group(function () {
 
         // Crear sorteo
         Route::get('/admin/create', [AdminController::class, 'create'])->name('admin.create');
         Route::post('/admin/create', [AdminController::class, 'store'])->name('admin.store');
+
+        // Borradores generados por analisis automatico
+        Route::get('/admin/borradores', [DraftController::class, 'index'])->name('admin.drafts.index');
+        Route::get('/admin/borradores/{id}', [DraftController::class, 'show'])->name('admin.drafts.show');
+        Route::post('/admin/borradores/{id}/aprobar', [DraftController::class, 'approve'])->name('admin.drafts.approve');
+        Route::post('/admin/borradores/{id}/rechazar', [DraftController::class, 'reject'])->name('admin.drafts.reject');
 
         // Vista ruleta
         Route::get('/admin/roulette/{id}', [AdminController::class, 'vistaSorteo'])->name('admin.roulette');

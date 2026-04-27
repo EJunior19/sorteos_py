@@ -17,6 +17,9 @@
     <meta name="theme-color" content="#facc15">
     <link rel="apple-touch-icon" href="/logo.png">
 
+    <!-- 📷 html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+
 </head>
 
 <body class="bg-[#0B0B0B] text-white min-h-screen">

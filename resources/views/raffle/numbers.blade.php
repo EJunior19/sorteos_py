@@ -18,8 +18,7 @@
     <div class="grid grid-cols-5 gap-2 mb-4">
         @for($i = 1; $i <= $raffle->total_numbers; $i++)
             @php
-                $key = str_pad($i, 2, '0', STR_PAD_LEFT);
-                $n = $numbers[$key] ?? null;
+                $n = $numbers[$i] ?? null;
                 $status = $n->status ?? 'free';
             @endphp
 

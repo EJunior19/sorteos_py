@@ -27,11 +27,8 @@ class ReservationController extends Controller
 
             foreach ($numbers as $num) {
 
-                // 🔥 FIX IMPORTANTE
-                $numberFormatted = str_pad((int)$num, 2, '0', STR_PAD_LEFT);
-
                 $n = RaffleNumber::where('raffle_id', $request->raffle_id)
-                    ->where('number', $numberFormatted) // 👈 CAMBIO CLAVE
+                    ->where('number', (int)$num)
                     ->lockForUpdate()
                     ->first();
 

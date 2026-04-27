@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,10 +12,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuth::class,
             'admin.only' => \App\Http\Middleware\AdminOnly::class,
         ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('reservas:liberar')->everyMinute();
+
+        $schedule->command('raffles:analyze-candidates')
+            ->hourly();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

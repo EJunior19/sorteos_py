@@ -14,6 +14,10 @@ class Kernel extends ConsoleKernel
     {
         // 🔥 Liberar reservas vencidas cada minuto
         $schedule->command('reservas:liberar')->everyMinute();
+
+        // Generar propuestas automaticas de sorteos cada hora.
+        $schedule->command('raffles:analyze-candidates')
+            ->hourly();
     }
 
     /**
