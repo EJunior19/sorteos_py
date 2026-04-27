@@ -61,6 +61,7 @@ class DraftController extends Controller
                 'cost_gs'          => $candidate->cost_gs,
                 'status'           => 'active',
                 'prizes_count'     => $prizes->count(),
+                'urgency_messages' => $candidate->metrics['urgency_messages'] ?? [],
             ]);
 
             foreach ($prizes as $index => $prize) {

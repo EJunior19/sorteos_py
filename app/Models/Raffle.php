@@ -32,11 +32,13 @@ class Raffle extends Model
         'promo_prize_text',
         'discount_active',
         'discount_pct',
+        'urgency_messages',
     ];
 
     protected $casts = [
         'promo_enabled'   => 'boolean',
         'discount_active' => 'boolean',
+        'urgency_messages' => 'array',
         'sale_started_at' => 'datetime',
         'sold_out_at'     => 'datetime',
     ];

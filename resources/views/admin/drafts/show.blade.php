@@ -13,6 +13,7 @@
     $isPending = $candidate->filter_status === 'selected' && is_null($candidate->approved_at);
     $typeLabel = $candidate->raffle_type === 'relampago' ? 'flash' : 'grande';
     $prizes = $candidate->metrics['prizes'] ?? [];
+    $urgencyMessages = $candidate->metrics['urgency_messages'] ?? [];
 @endphp
 
 <div class="flex justify-between items-center gap-2 mb-4">
@@ -114,6 +115,17 @@
         <h2 class="text-white font-bold text-sm mb-2">Comparacion con sorteos anteriores</h2>
         <p class="text-gray-300 text-sm leading-relaxed">{{ $candidate->historical_comparison ?: 'Sin comparacion historica registrada.' }}</p>
     </section>
+
+    @if(!empty($urgencyMessages))
+        <section class="bg-[#1A1A1A] border border-white/10 rounded-xl p-4">
+            <h2 class="text-white font-bold text-sm mb-2">Mensajes de urgencia</h2>
+            <div class="space-y-2">
+                @foreach($urgencyMessages as $message)
+                    <p class="bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-yellow-200">{{ $message }}</p>
+                @endforeach
+            </div>
+        </section>
+    @endif
 
     <section class="bg-[#1A1A1A] border border-white/10 rounded-xl p-4">
         <h2 class="text-white font-bold text-sm mb-2">Datos de aprobacion</h2>

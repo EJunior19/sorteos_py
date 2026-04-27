@@ -18,7 +18,9 @@ class AnalyzeRaffleCandidates extends Command
 
     protected $description = 'Analiza productos candidatos para sorteos y guarda el resultado para aprobacion.';
 
-    private const MAX_PRICE_PER_NUMBER = 25000;
+    private const MIN_PRICE_PER_NUMBER = 3000;
+    private const STANDARD_MAX_PRICE_PER_NUMBER = 16000;
+    private const MAX_PRICE_PER_NUMBER = 50000;
     private const MAPY_REPORTS_DIR = '/var/www/reportes_mapy';
     private const MIN_PERCEIVED_COST_GS = 25000;
     private const MIN_PRIZE_COST_GS = 60000;
@@ -39,6 +41,7 @@ class AnalyzeRaffleCandidates extends Command
         $usdRate = max(1, (int) $this->option('usd-rate'));
         $minStock = max(0, (int) $this->option('min-stock'));
         $history = $this->historicalRaffles();
+        $rotation = $this->rotationContext();
         $rows = $this->readCsv($csvPath);
 
         if ($rows->isEmpty()) {
@@ -46,21 +49,35 @@ class AnalyzeRaffleCandidates extends Command
             return self::FAILURE;
         }
 
-        [$plans, $discarded] = $this->analyzeRows($rows, $history, $usdRate, $minStock);
+        [$plans, $discarded] = $this->analyzeRows($rows, $history, $rotation, $usdRate, $minStock);
 
         $big = $plans->where('raffle_type', 'grande')->sortByDesc('score')->take(1)->values();
-        $flash = $plans->where('raffle_type', 'relampago')->sortByDesc('score')->take(1)->values();
-        $selectedProducts = $big->merge($flash)->map(fn ($p) => $p['product_name'])->all();
-        $alternativeBig = $plans
-            ->where('raffle_type', 'grande')
-            ->reject(fn ($p) => in_array($p['product_name'], $selectedProducts, true))
+        $selectedProducts = $this->planPrizeNames($big);
+        $flash = $plans
+            ->where('raffle_type', 'relampago')
+            ->reject(fn ($p) => $this->planOverlapsProducts($p, $selectedProducts))
             ->sortByDesc('score')
             ->take(1)
             ->values();
-        $selectedProducts = array_merge($selectedProducts, $alternativeBig->map(fn ($p) => $p['product_name'])->all());
+        $selectedProducts = array_merge($selectedProducts, $this->planPrizeNames($flash));
+        $alternativeBig = $plans
+            ->where('raffle_type', 'grande')
+            ->reject(fn ($p) => $this->planOverlapCount($p, $selectedProducts) > 2)
+            ->sortByDesc('score')
+            ->take(1)
+            ->values();
+        if ($alternativeBig->isEmpty()) {
+            $alternativeBig = $plans
+                ->where('raffle_type', 'grande')
+                ->reject(fn ($p) => $big->contains(fn ($selected) => $selected['product_name'] === $p['product_name']))
+                ->sortByDesc('score')
+                ->take(1)
+                ->values();
+        }
+        $selectedProducts = array_merge($selectedProducts, $this->planPrizeNames($alternativeBig));
         $alternativeFlash = $plans
             ->where('raffle_type', 'relampago')
-            ->reject(fn ($p) => in_array($p['product_name'], $selectedProducts, true))
+            ->reject(fn ($p) => $this->planOverlapsProducts($p, $selectedProducts))
             ->sortByDesc('score')
             ->take(1)
             ->values();
@@ -196,7 +213,7 @@ class AnalyzeRaffleCandidates extends Command
             && in_array('costo_promedio', $headers, true);
     }
 
-    private function analyzeRows(Collection $rows, Collection $history, int $usdRate, int $minStock): array
+    private function analyzeRows(Collection $rows, Collection $history, array $rotation, int $usdRate, int $minStock): array
     {
         $candidates = collect();
         $discarded = collect();
@@ -235,6 +252,7 @@ class AnalyzeRaffleCandidates extends Command
                 'saleability_score' => $this->saleabilityScore($productName, $category, $costGs, $stock),
                 'perceived_value_score' => $this->perceivedValueScore($productName, $category, $costGs),
                 'perceived_value_level' => $this->perceivedValueLevel($this->perceivedValueScore($productName, $category, $costGs)),
+                'rotation_score' => $this->productRotationScore($productName, $category, $this->marketingType($productName, $category), $rotation),
             ];
 
             $candidates->push($candidate);
@@ -242,16 +260,16 @@ class AnalyzeRaffleCandidates extends Command
 
         $candidates = $this->dedupeCandidates($candidates);
         $flashPlans = $candidates
-            ->map(fn ($candidate) => $this->buildFlashPlan($candidate, $history))
+            ->map(fn ($candidate) => $this->buildFlashPlan($candidate, $history, $rotation))
             ->filter()
             ->values();
-        $bigPlans = $this->buildBigPlans($candidates, $history);
+        $bigPlans = $this->buildBigPlans($candidates, $history, $rotation);
         $plans = $flashPlans->merge($bigPlans);
 
         $plannedNames = $plans->flatMap(fn ($plan) => collect($plan['metrics']['prizes'] ?? [])->pluck('name'))->unique()->all();
         foreach ($candidates as $candidate) {
             if (!in_array($candidate['product_name'], $plannedNames, true)) {
-                $discarded->push($this->discard($candidate['row'], $candidate['row_index'], $candidate['product_name'], ['No logro una combinacion rentable y vendible con precio por numero de hasta 25.000 Gs.'], $candidate['category'], $candidate['cost_gs'], $candidate['stock']));
+                $discarded->push($this->discard($candidate['row'], $candidate['row_index'], $candidate['product_name'], ['No logro una combinacion rentable y vendible con precio por numero entre 3.000 y 50.000 Gs segun el valor del premio.'], $candidate['category'], $candidate['cost_gs'], $candidate['stock']));
             }
         }
 
@@ -271,7 +289,35 @@ class AnalyzeRaffleCandidates extends Command
         return ($candidate['product_code'] ?: 'sin_codigo') . '|' . $this->normalizeText($candidate['product_name']);
     }
 
-    private function buildFlashPlan(array $candidate, Collection $history): ?array
+    private function planPrizeNames(Collection $plans): array
+    {
+        return $plans
+            ->flatMap(fn ($plan) => collect($plan['metrics']['prizes'] ?? [])->pluck('name')->push($plan['product_name']))
+            ->map(fn ($name) => $this->rotationProductKey((string) $name))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function planOverlapsProducts(array $plan, array $usedProductKeys): bool
+    {
+        return $this->planOverlapCount($plan, $usedProductKeys) > 0;
+    }
+
+    private function planOverlapCount(array $plan, array $usedProductKeys): int
+    {
+        $keys = collect($plan['metrics']['prizes'] ?? [])
+            ->pluck('name')
+            ->push($plan['product_name'])
+            ->map(fn ($name) => $this->rotationProductKey((string) $name))
+            ->filter()
+            ->all();
+
+        return count(array_intersect($keys, $usedProductKeys));
+    }
+
+    private function buildFlashPlan(array $candidate, Collection $history, array $rotation): ?array
     {
         if ($candidate['cost_gs'] >= 120000) {
             return null;
@@ -281,23 +327,23 @@ class AnalyzeRaffleCandidates extends Command
             return null;
         }
 
-        return $this->buildPlanFromPrizes([$this->prizePayload($candidate, 'principal')], 'relampago', $history);
+        return $this->buildPlanFromPrizes([$this->prizePayload($candidate, 'principal')], 'relampago', $history, $rotation);
     }
 
-    private function buildBigPlans(Collection $candidates, Collection $history): Collection
+    private function buildBigPlans(Collection $candidates, Collection $history, array $rotation): Collection
     {
         $secondaryPool = $candidates
             ->filter(fn ($candidate) => $candidate['cost_gs'] >= self::MIN_PRIZE_COST_GS && $candidate['cost_gs'] <= 320000)
             ->filter(fn ($candidate) => $candidate['perceived_value_score'] >= self::MIN_PERCEIVED_VALUE_SCORE)
-            ->sortByDesc(fn ($candidate) => ($candidate['perceived_value_score'] * 0.5) + ($candidate['saleability_score'] * 0.3) + ($candidate['attraction_score'] * 0.2))
+            ->sortByDesc(fn ($candidate) => ($candidate['perceived_value_score'] * 0.42) + ($candidate['saleability_score'] * 0.24) + ($candidate['attraction_score'] * 0.16) + ($candidate['rotation_score'] * 0.18))
             ->values();
 
         return $candidates
             ->filter(fn ($candidate) => $candidate['cost_gs'] >= 250000 && $candidate['attraction_score'] >= 58)
             ->filter(fn ($candidate) => $candidate['perceived_value_score'] >= self::MIN_MAIN_PRIZE_PERCEIVED_VALUE_SCORE)
-            ->sortByDesc(fn ($candidate) => ($candidate['perceived_value_score'] * 0.5) + ($candidate['attraction_score'] * 0.3) + ($candidate['saleability_score'] * 0.2))
+            ->sortByDesc(fn ($candidate) => ($candidate['perceived_value_score'] * 0.42) + ($candidate['attraction_score'] * 0.22) + ($candidate['saleability_score'] * 0.18) + ($candidate['rotation_score'] * 0.18))
             ->take(70)
-            ->map(function ($principal) use ($secondaryPool, $history) {
+            ->map(function ($principal) use ($secondaryPool, $history, $rotation) {
                 $secondary = $this->secondaryPrizesFor($principal, $secondaryPool);
 
                 if ($secondary->count() < 4) {
@@ -305,11 +351,11 @@ class AnalyzeRaffleCandidates extends Command
                 }
 
                 $prizes = collect([$this->prizePayload($principal, 'principal')])
-                    ->merge($secondary->map(fn ($candidate) => $this->prizePayload($candidate, 'secundario')))
+                    ->merge($secondary->take(5)->map(fn ($candidate) => $this->prizePayload($candidate, 'secundario')))
                     ->values()
                     ->all();
 
-                return $this->buildPlanFromPrizes($prizes, 'grande', $history);
+                return $this->buildPlanFromPrizes($prizes, 'grande', $history, $rotation);
             })
             ->filter()
             ->values();
@@ -322,13 +368,15 @@ class AnalyzeRaffleCandidates extends Command
         $usedTypes = [$this->marketingType($principal['product_name'], $principal['category'])];
         $usedCategories = [$principal['category']];
 
+        $principalOffset = abs(crc32($principalKey));
         $ranked = $pool
             ->reject(fn ($candidate) => $this->candidateKey($candidate) === $principalKey)
-            ->sortByDesc(function ($candidate) use ($principal, $targetMax) {
+            ->sortByDesc(function ($candidate) use ($principal, $targetMax, $principalOffset) {
                 $categoryBonus = $candidate['category'] === $principal['category'] ? -18 : 18;
                 $costFit = max(0, 30 - (abs($candidate['cost_gs'] - ($targetMax * 0.55)) / 4500));
+                $noveltyJitter = (abs(crc32($this->candidateKey($candidate) . '|' . $principalOffset)) % 17) - 8;
 
-                return ($candidate['perceived_value_score'] * 0.55) + ($candidate['saleability_score'] * 0.30) + $categoryBonus + ($costFit * 0.7);
+                return ($candidate['perceived_value_score'] * 0.50) + ($candidate['saleability_score'] * 0.26) + $categoryBonus + ($costFit * 0.5) + $noveltyJitter;
             })
             ->values();
 
@@ -348,7 +396,7 @@ class AnalyzeRaffleCandidates extends Command
             $usedTypes[] = $type;
             $usedCategories[] = $candidate['category'];
 
-            if ($selected->count() === 4) {
+            if ($selected->count() === 5) {
                 break;
             }
         }
@@ -367,7 +415,7 @@ class AnalyzeRaffleCandidates extends Command
                 $selected->push($candidate);
                 $usedTypes[] = $type;
 
-                if ($selected->count() === 4) {
+                if ($selected->count() === 5) {
                     break;
                 }
             }
@@ -388,25 +436,29 @@ class AnalyzeRaffleCandidates extends Command
             'cost_base' => $candidate['cost_base'] ?? null,
             'perceived_value_score' => $candidate['perceived_value_score'] ?? $this->perceivedValueScore($candidate['product_name'], $candidate['category'], $candidate['cost_gs']),
             'perceived_value_level' => $candidate['perceived_value_level'] ?? null,
+            'rotation_score' => $candidate['rotation_score'] ?? 100,
             'stock' => $candidate['stock'],
             'raw_product' => $candidate['row'],
         ];
     }
 
-    private function buildPlanFromPrizes(array $prizes, string $type, Collection $history): ?array
+    private function buildPlanFromPrizes(array $prizes, string $type, Collection $history, array $rotation): ?array
     {
         $mainPrize = $prizes[0];
         $totalCost = (int) collect($prizes)->sum('cost_gs');
         $prizesCount = count($prizes);
-        $range = $type === 'relampago' ? [20, 50] : [80, 180];
+        $range = $type === 'relampago' ? [20, 50] : [80, 500];
         $targetMargin = $type === 'relampago' ? 0.42 : 0.35;
         $minProfit = $type === 'relampago' ? 45000 : max(150000, (int) round($totalCost * 0.28));
 
-        if ($type === 'grande' && $prizesCount < 5) {
+        if ($type === 'grande' && ($prizesCount < 5 || $prizesCount > 6)) {
             return null;
         }
 
         $marketingMixScore = $type === 'grande' ? $this->planMarketingMixScore($prizes) : 100;
+        $rotationScore = $this->planRotationScore($prizes, $type, $rotation);
+        $attractionScore = $this->planAttractionScore($prizes);
+        $perceivedValueScore = $this->planPerceivedValueScore($prizes);
         if ($type === 'grande' && $marketingMixScore < 70) {
             return null;
         }
@@ -414,7 +466,7 @@ class AnalyzeRaffleCandidates extends Command
         $best = null;
         for ($numbers = $range[0]; $numbers <= $range[1]; $numbers++) {
             $targetRevenue = max($totalCost + $minProfit, (int) ceil($totalCost / (1 - $targetMargin)));
-            $price = max(self::IDEAL_MIN_PRICE, (int) (ceil(($targetRevenue / $numbers) / 1000) * 1000));
+            $price = $this->priceForPlan($targetRevenue, $numbers, $type, $perceivedValueScore, $attractionScore, $totalCost, $prizesCount);
 
             if ($price > self::MAX_PRICE_PER_NUMBER) {
                 continue;
@@ -430,9 +482,7 @@ class AnalyzeRaffleCandidates extends Command
 
             $priceFit = $this->priceFitScore($price);
             $profitScore = min(100, ($profit / max(1, $totalCost)) * 100);
-            $attractionScore = $this->planAttractionScore($prizes);
             $saleabilityScore = $this->planSaleabilityScore($prizes, $price, $numbers);
-            $perceivedValueScore = $this->planPerceivedValueScore($prizes);
             $historyScore = $this->historyScore([
                 'product_name' => $mainPrize['name'],
                 'category' => $mainPrize['category'],
@@ -441,13 +491,14 @@ class AnalyzeRaffleCandidates extends Command
             $typeFit = $this->typeFitScore($totalCost, $type, $prizesCount);
 
             $score = round(
-                ($profitScore * 0.10)
-                + ($priceFit * 0.18)
-                + ($attractionScore * 0.14)
-                + ($saleabilityScore * 0.16)
-                + ($perceivedValueScore * 0.24)
-                + ($historyScore * 0.08)
-                + ($marketingMixScore * 0.10),
+                ($profitScore * 0.08)
+                + ($priceFit * 0.16)
+                + ($attractionScore * 0.12)
+                + ($saleabilityScore * 0.14)
+                + ($perceivedValueScore * 0.22)
+                + ($historyScore * 0.06)
+                + ($marketingMixScore * 0.10)
+                + ($rotationScore * 0.12),
                 2
             );
 
@@ -472,7 +523,7 @@ class AnalyzeRaffleCandidates extends Command
                     'estimated_profit_gs' => $profit,
                     'score' => $score,
                     'risk_level' => $this->riskLevel($score, $margin, $price),
-                    'reason' => $this->reason($candidate, $type, $numbers, $price, $profit, $margin, $prizesCount, $saleabilityScore, $perceivedValueScore),
+                    'reason' => $this->reason($candidate, $type, $numbers, $price, $profit, $margin, $prizesCount, $saleabilityScore, $perceivedValueScore, $rotationScore),
                     'historical_comparison' => $comparison,
                     'filter_status' => 'selected',
                     'filter_reasons' => [],
@@ -491,6 +542,9 @@ class AnalyzeRaffleCandidates extends Command
                         'profit_score' => round($profitScore, 2),
                         'type_fit_score' => round($typeFit, 2),
                         'marketing_mix_score' => round($marketingMixScore, 2),
+                        'rotation_score' => round($rotationScore, 2),
+                        'rotation_summary' => $this->rotationSummary($prizes, $rotation),
+                        'urgency_messages' => $this->urgencyMessages($displayName, $type, $prizes, $numbers, $price),
                         'main_prize' => $mainPrize,
                     ],
                 ];
@@ -528,6 +582,69 @@ class AnalyzeRaffleCandidates extends Command
                     'text' => $names,
                 ];
             });
+    }
+
+    private function rotationContext(): array
+    {
+        $productCounts = [];
+        $categoryCounts = [];
+        $typeCounts = [];
+        $comboCounts = [];
+
+        $remember = function (string $name, string $category, ?string $type = null, int $weight = 1) use (&$productCounts, &$categoryCounts, &$typeCounts): void {
+            $key = $this->rotationProductKey($name);
+            $productCounts[$key] = ($productCounts[$key] ?? 0) + $weight;
+            $categoryCounts[$category] = ($categoryCounts[$category] ?? 0) + $weight;
+
+            $typeKey = $type ?: $this->marketingType($name, $category);
+            $typeCounts[$typeKey] = ($typeCounts[$typeKey] ?? 0) + $weight;
+        };
+
+        RaffleCandidateAnalysis::query()
+            ->whereIn('filter_status', ['selected', 'archived'])
+            ->where('selection_group', '!=', 'descartado')
+            ->where('created_at', '>=', now()->subDays(21))
+            ->latest('id')
+            ->limit(60)
+            ->get()
+            ->each(function (RaffleCandidateAnalysis $analysis) use ($remember, &$comboCounts): void {
+                $prizes = collect($analysis->metrics['prizes'] ?? []);
+                if ($prizes->isEmpty()) {
+                    $remember($analysis->product_name, $analysis->category, null, 2);
+                    return;
+                }
+
+                $signature = $this->comboSignature($prizes->all());
+                $comboCounts[$signature] = ($comboCounts[$signature] ?? 0) + 1;
+
+                foreach ($prizes as $index => $prize) {
+                    $remember(
+                        (string) ($prize['name'] ?? ''),
+                        (string) ($prize['category'] ?? $analysis->category),
+                        $prize['marketing_type'] ?? null,
+                        $index === 0 ? 3 : 2
+                    );
+                }
+            });
+
+        Raffle::with('prizes')
+            ->latest('id')
+            ->limit(20)
+            ->get()
+            ->each(function (Raffle $raffle) use ($remember): void {
+                foreach ($raffle->prizes as $index => $prize) {
+                    $name = (string) $prize->name;
+                    $category = $raffle->category ?: $this->inferCategory($name);
+                    $remember($name, $category, null, $index === 0 ? 3 : 2);
+                }
+            });
+
+        return [
+            'products' => $productCounts,
+            'categories' => $categoryCounts,
+            'types' => $typeCounts,
+            'combos' => $comboCounts,
+        ];
     }
 
     private function saveResults(string $batchUuid, string $csvPath, Collection $big, Collection $flash, Collection $alternatives, Collection $discarded): void
@@ -669,7 +786,7 @@ class AnalyzeRaffleCandidates extends Command
         ];
     }
 
-    private function reason(array $candidate, string $type, int $numbers, int $price, int $profit, float $margin, int $prizesCount, float $saleabilityScore, float $perceivedValueScore): string
+    private function reason(array $candidate, string $type, int $numbers, int $price, int $profit, float $margin, int $prizesCount, float $saleabilityScore, float $perceivedValueScore, float $rotationScore): string
     {
         $typeText = $type === 'relampago' ? 'flash de venta rapida' : 'sorteo grande con paquete de premios';
         $accessibility = $price >= self::IDEAL_MIN_PRICE && $price <= self::IDEAL_MAX_PRICE
@@ -680,7 +797,7 @@ class AnalyzeRaffleCandidates extends Command
             : $prizesCount . ' premios, con un principal atractivo y secundarios que aumentan valor percibido';
 
         return sprintf(
-            'Elegido como %s porque combina rubro %s, %s, %s, %d numeros, valor percibido %s (%.0f/100), facilidad de venta %.0f/100 y margen estimado de %.1f%% con ganancia de %s.',
+            'Elegido como %s porque combina rubro %s, %s, %s, %d numeros, valor percibido %s (%.0f/100), facilidad de venta %.0f/100, rotacion/novedad %.0f/100 y margen estimado de %.1f%% con ganancia de %s.',
             $typeText,
             $candidate['category'],
             $accessibility,
@@ -689,6 +806,7 @@ class AnalyzeRaffleCandidates extends Command
             $this->perceivedValueLevel($perceivedValueScore),
             $perceivedValueScore,
             $saleabilityScore,
+            $rotationScore,
             $margin * 100,
             $this->gs($profit)
         );
@@ -958,6 +1076,28 @@ class AnalyzeRaffleCandidates extends Command
         return (float) round(($scores->first() * 0.62) + ($scores->slice(1)->avg() * 0.38), 2);
     }
 
+    private function priceForPlan(int $targetRevenue, int $numbers, string $type, float $perceivedValueScore, float $attractionScore, int $totalCost, int $prizesCount): int
+    {
+        $rawPrice = $targetRevenue / max(1, $numbers);
+        $price = (int) (ceil($rawPrice / 1000) * 1000);
+        $maxAllowed = self::STANDARD_MAX_PRICE_PER_NUMBER;
+
+        if ($type === 'grande' && $prizesCount >= 6 && $totalCost >= 1800000 && $perceivedValueScore >= 90 && $attractionScore >= 85) {
+            $maxAllowed = self::MAX_PRICE_PER_NUMBER;
+        }
+
+        $commercialFloor = $type === 'relampago' ? self::MIN_PRICE_PER_NUMBER : self::IDEAL_MIN_PRICE;
+        if ($perceivedValueScore >= 85 || $attractionScore >= 85) {
+            $commercialFloor = max($commercialFloor, $type === 'relampago' ? 6000 : 8000);
+        }
+
+        if ($perceivedValueScore >= 95) {
+            $commercialFloor = max($commercialFloor, $type === 'relampago' ? 7000 : 9000);
+        }
+
+        return max(self::MIN_PRICE_PER_NUMBER, min($maxAllowed, max($commercialFloor, $price)));
+    }
+
     private function planMarketingMixScore(array $prizes): float
     {
         $categories = collect($prizes)->pluck('category')->unique()->count();
@@ -978,6 +1118,71 @@ class AnalyzeRaffleCandidates extends Command
         return max(0, min(100, $score));
     }
 
+    private function productRotationScore(string $productName, string $category, string $type, array $rotation): float
+    {
+        $productHits = (int) ($rotation['products'][$this->rotationProductKey($productName)] ?? 0);
+        $categoryHits = (int) ($rotation['categories'][$category] ?? 0);
+        $typeHits = (int) ($rotation['types'][$type] ?? 0);
+
+        $score = 100;
+        $score -= min(55, $productHits * 18);
+        $score -= min(24, $typeHits * 4);
+        $score -= min(18, $categoryHits * 2);
+
+        return max(10, min(100, $score));
+    }
+
+    private function planRotationScore(array $prizes, string $type, array $rotation): float
+    {
+        $scores = collect($prizes)->map(function ($prize, $index) use ($rotation) {
+            $score = $this->productRotationScore(
+                (string) $prize['name'],
+                (string) $prize['category'],
+                (string) ($prize['marketing_type'] ?? $this->marketingType($prize['name'], $prize['category'])),
+                $rotation
+            );
+
+            return $index === 0 ? $score * 1.35 : $score;
+        });
+
+        $base = (float) ($scores->sum() / max(1, $scores->count() + 0.35));
+
+        if ($type === 'grande') {
+            $signatureHits = (int) ($rotation['combos'][$this->comboSignature($prizes)] ?? 0);
+            $base -= min(35, $signatureHits * 18);
+        }
+
+        return max(10, min(100, round($base, 2)));
+    }
+
+    private function rotationSummary(array $prizes, array $rotation): array
+    {
+        return [
+            'repeated_products' => collect($prizes)
+                ->filter(fn ($prize) => ($rotation['products'][$this->rotationProductKey((string) $prize['name'])] ?? 0) > 0)
+                ->map(fn ($prize) => $prize['name'])
+                ->values()
+                ->all(),
+            'combo_signature_hits' => (int) ($rotation['combos'][$this->comboSignature($prizes)] ?? 0),
+            'categories' => collect($prizes)->pluck('category')->unique()->values()->all(),
+            'marketing_types' => collect($prizes)->pluck('marketing_type')->unique()->values()->all(),
+        ];
+    }
+
+    private function comboSignature(array $prizes): string
+    {
+        return collect($prizes)
+            ->pluck('marketing_type')
+            ->filter()
+            ->sort()
+            ->implode('|');
+    }
+
+    private function rotationProductKey(string $name): string
+    {
+        return implode(' ', array_slice($this->tokens($name), 0, 6));
+    }
+
     private function comboName(array $prizes): string
     {
         $name = collect($prizes)
@@ -986,6 +1191,37 @@ class AnalyzeRaffleCandidates extends Command
             ->implode(' + ');
 
         return 'Combo ' . $name;
+    }
+
+    private function urgencyMessages(string $displayName, string $type, array $prizes, int $numbers, int $price): array
+    {
+        $main = $this->shortPrizeName((string) ($prizes[0]['name'] ?? $displayName));
+        $priceText = $this->gs($price);
+        $numbersText = number_format($numbers, 0, ',', '.');
+
+        if ($type === 'grande') {
+            return [
+                'Combo fuerte en juego: ' . $displayName . '.',
+                'Son solo ' . $numbersText . ' numeros para este combo.',
+                'Con ' . $priceText . ' ya competis por los ' . count($prizes) . ' premios.',
+                'El premio principal es ' . $main . ', y viene con extras.',
+                'Si estabas esperando un combo completo, este es el momento.',
+                'Pocos sorteos mezclan tantos premios vendibles en una sola jugada.',
+                'Elegí tu número antes de que se ocupen los mejores.',
+                'Combo de alto valor, precio accesible y cupos limitados.',
+            ];
+        }
+
+        return [
+            'Flash activo: ' . $main . ' puede salir rapido.',
+            'Solo ' . $numbersText . ' numeros disponibles.',
+            'Por ' . $priceText . ' participas por un premio directo.',
+            'Sorteo corto, premio deseado y venta rapida.',
+            'No lo dejes para despues: los flash se llenan primero.',
+            'Elegí tu número mientras todavía hay lugares libres.',
+            'Premio simple, claro y fácil de ganar.',
+            'Ideal para entrar rapido sin gastar de más.',
+        ];
     }
 
     private function shortPrizeName(string $name): string
@@ -1056,11 +1292,15 @@ class AnalyzeRaffleCandidates extends Command
 
     private function priceFitScore(int $price): float
     {
-        if ($price >= 5000 && $price <= 15000) {
+        if ($price >= self::IDEAL_MIN_PRICE && $price <= self::IDEAL_MAX_PRICE) {
             return 100 - (abs($price - 10000) / 100);
         }
 
-        return max(20, 70 - (abs($price - 15000) / 180));
+        if ($price >= self::MIN_PRICE_PER_NUMBER && $price < self::IDEAL_MIN_PRICE) {
+            return max(45, 70 - ((self::IDEAL_MIN_PRICE - $price) / 80));
+        }
+
+        return max(20, 70 - (abs($price - self::IDEAL_MAX_PRICE) / 180));
     }
 
     private function typeFitScore(int $costGs, string $type, int $prizesCount = 1): int

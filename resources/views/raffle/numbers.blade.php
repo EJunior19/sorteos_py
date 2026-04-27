@@ -6,6 +6,7 @@
 
 @php
     $numbers = $raffle->numbers->keyBy('number');
+    $urgencyMessages = $raffle->urgency_messages ?: [];
 @endphp
 
 <div class="px-3 pb-6">
@@ -13,6 +14,14 @@
     <h2 class="text-yellow-400 text-lg font-bold text-center mb-4">
         🎯 Elegí tus números
     </h2>
+
+    @if(!empty($urgencyMessages))
+        <div class="bg-[#1A1A1A] border border-yellow-500/30 rounded-xl p-3 mb-4 text-center">
+            <p id="urgencyMessage" class="text-yellow-300 text-sm font-bold leading-snug">
+                {{ $urgencyMessages[0] }}
+            </p>
+        </div>
+    @endif
 
     <!-- GRID -->
     <div class="grid grid-cols-5 gap-2 mb-4">
@@ -51,6 +60,16 @@
 
 <script>
 let seleccionados = [];
+const urgencyMessages = @json($urgencyMessages);
+let urgencyIndex = 0;
+
+if (urgencyMessages.length > 1) {
+    setInterval(() => {
+        urgencyIndex = (urgencyIndex + 1) % urgencyMessages.length;
+        const el = document.getElementById('urgencyMessage');
+        if (el) el.innerText = urgencyMessages[urgencyIndex];
+    }, 6000);
+}
 
 function toggleNumber(num, status) {
     if (status !== 'free') return;
