@@ -12,9 +12,6 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // 🔥 Liberar reservas vencidas cada minuto
-        $schedule->command('reservas:liberar')->everyMinute();
-
         // Generar propuestas automaticas de sorteos cada hora.
         $schedule->command('raffles:analyze-candidates')
             ->hourly();
