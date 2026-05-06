@@ -109,21 +109,28 @@
 
                 <select
                     name="promo_type"
+                    id="promoType"
+                    onchange="togglePromoLimit(this.value)"
                     class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
                 >
                     <option value="early_numbers" {{ old('promo_type', 'early_numbers') === 'early_numbers' ? 'selected' : '' }}>
                         Primeros números adquiridos
                     </option>
+                    <option value="most_numbers" {{ old('promo_type') === 'most_numbers' ? 'selected' : '' }}>
+                        Quien más números compre
+                    </option>
                 </select>
 
-                <input
-                    type="number"
-                    name="promo_limit"
-                    min="1"
-                    placeholder="Primeros X números que participan (ej: 20)"
-                    value="{{ old('promo_limit') }}"
-                    class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
-                >
+                <div id="promoLimitField" class="{{ old('promo_type') === 'most_numbers' ? 'hidden' : '' }}">
+                    <input
+                        type="number"
+                        name="promo_limit"
+                        min="1"
+                        placeholder="Primeros X números que participan (ej: 20)"
+                        value="{{ old('promo_limit') }}"
+                        class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+                    >
+                </div>
 
                 <input
                     type="number"
@@ -142,7 +149,7 @@
                     class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
                 >
 
-                <p class="text-gray-500 text-xs">
+                <p id="promoHint" class="text-gray-500 text-xs">
                     Los primeros <strong class="text-gray-300">X</strong> números en reservar participan.
                     Solo los confirmados como pagados entran al sorteo de la promo.
                     Se ejecuta al final, después de todos los premios principales.
@@ -153,6 +160,7 @@
 
         <button
             type="submit"
+            id="submitBtn"
             class="w-full bg-yellow-400 text-black py-4 rounded-xl font-bold mt-2"
         >
             Crear Sorteo
@@ -164,6 +172,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Protección doble clic ──────────────────────────────────
+    const form      = document.querySelector('form');
+    const submitBtn = document.getElementById('submitBtn');
+    form.addEventListener('submit', function () {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creando sorteo…';
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    });
 
     // ── Formato precio ─────────────────────────────────────────
     const priceInput = document.getElementById('price');
@@ -253,6 +270,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function togglePromo(enabled) {
     document.getElementById('promoFields').classList.toggle('hidden', !enabled);
+}
+
+function togglePromoLimit(type) {
+    const limitField = document.getElementById('promoLimitField');
+    const hint       = document.getElementById('promoHint');
+    const isMost     = type === 'most_numbers';
+
+    limitField.classList.toggle('hidden', isMost);
+
+    hint.innerHTML = isMost
+        ? 'Gana el cliente que más números haya comprado y pagado. En caso de empate, gana quien compró primero.'
+        : 'Los primeros <strong class="text-gray-300">X</strong> números en reservar participan. Solo los confirmados como pagados entran al sorteo de la promo. Se ejecuta al final, después de todos los premios principales.';
 }
 </script>
 

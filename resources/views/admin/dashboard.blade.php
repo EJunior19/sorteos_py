@@ -665,6 +665,9 @@ function generarMensajes(data) {
         numbers = [],
         discount_active = false,
         discount_pct = 0,
+        promo_enabled = false,
+        promo_type = null,
+        promo_prize_text = null,
     } = data;
 
     const fmt = v => new Intl.NumberFormat('es-PY', { useGrouping: true, minimumFractionDigits: 0 }).format(v).replace(/\s/g, '.');
@@ -688,6 +691,23 @@ function generarMensajes(data) {
         });
     } else {
         listaPremios += '🎁 *Premios sorpresa!*\n';
+    }
+
+    if (promo_enabled && promo_prize_text) {
+        if (promo_type === 'most_numbers') {
+            listaPremios +=
+`\n🎁 *Promo especial incluida*
+También participás por un premio extra:
+${promo_prize_text}
+🏆 Gana esta promo la persona que compre la mayor cantidad de números del sorteo.
+🔥 Cuantos más números reservás, más cerca estás de llevarte el premio principal y la promo especial.\n`;
+        } else {
+            listaPremios +=
+`\n🎁 *Promo especial incluida*
+También participás por un premio extra:
+${promo_prize_text}
+🏆 Los primeros en reservar y confirmar pago participan por esta promo especial.\n`;
+        }
     }
 
     let listaNumeros = '';
@@ -1346,6 +1366,25 @@ ${numerosLibres > 0 ? 'Últimos lugares para participar 📲' : 'Números comple
     } else {
         mensajeUrgencia = urgenciaNivel1;
     }
+
+    const bloqueNumerosDisponibles = numerosLibres > 0
+        ? `🎫 *NÚMEROS DISPONIBLES:*\n${numerosDisponiblesLista || 'Consultá números disponibles por acá'}`
+        : '🎫 *NÚMEROS DISPONIBLES:*\nYa no quedan números disponibles';
+
+    mensajeUrgencia = mensajeUrgencia.map(message => {
+        if (
+            message.includes('NÚMEROS DISPONIBLES') ||
+            message.includes('Disponibles:') ||
+            message.includes('Números:') ||
+            message.includes('Lo que queda:') ||
+            message.includes('Cupo completo') ||
+            message.includes('Ya no quedan números disponibles')
+        ) {
+            return message;
+        }
+
+        return `${message}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${bloqueNumerosDisponibles}`;
+    });
 
     const mensajesGenerados = {
         mensaje_completo: [

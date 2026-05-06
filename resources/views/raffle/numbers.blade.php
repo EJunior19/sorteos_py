@@ -23,6 +23,8 @@
         </div>
     @endif
 
+    @include('partials._promo_badge', ['raffle' => $raffle])
+
     <!-- GRID -->
     <div class="grid grid-cols-5 gap-2 mb-4">
         @for($i = 1; $i <= $raffle->total_numbers; $i++)

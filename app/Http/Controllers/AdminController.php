@@ -80,13 +80,23 @@ class AdminController extends Controller
             'titular_name'       => 'nullable|string|max:255',
             'alias'              => 'nullable|string|max:255',
             'promo_enabled'      => 'nullable|boolean',
-            'promo_type'         => 'nullable|string|in:early_numbers',
+            'promo_type'         => 'nullable|string|in:early_numbers,most_numbers',
             'promo_limit'        => 'nullable|integer|min:1',
             'promo_winner_count' => 'nullable|integer|min:1',
             'promo_prize_text'   => 'nullable|string|max:255',
         ]);
 
         $price = str_replace('.', '', $request->price);
+
+        $recentDuplicate = Raffle::where('name', $request->name)
+            ->where('created_at', '>=', now()->subSeconds(30))
+            ->exists();
+
+        if ($recentDuplicate) {
+            return back()
+                ->withInput()
+                ->withErrors(['name' => 'Este sorteo ya fue creado hace menos de 30 segundos. Recargá la página para verificar.']);
+        }
 
         $imagePath = null;
         if ($request->hasFile('image')) {
@@ -277,6 +287,9 @@ class AdminController extends Controller
             'numbers'          => $numbers,
             'discount_active'  => (bool)$raffle->discount_active,
             'discount_pct'     => (int)$raffle->discount_pct,
+            'promo_enabled'    => (bool)$raffle->promo_enabled,
+            'promo_type'       => $raffle->promo_type,
+            'promo_prize_text' => $raffle->promo_prize_text,
         ]);
     }
 
@@ -308,21 +321,26 @@ class AdminController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // 🎁 PROMO: obtener participantes (primeros promo_limit por reserved_at ASC)
-    private function getPromoParticipants(Raffle $raffle)
+    // 🎁 PROMO: despacha al método correcto según promo_type
+    private function drawPromo(Raffle $raffle)
     {
-        return $raffle->numbers()
+        if ($raffle->promo_type === 'most_numbers') {
+            return $this->drawPromoMostNumbers($raffle);
+        }
+
+        return $this->drawPromoEarlyNumbers($raffle);
+    }
+
+    // 🎁 PROMO early_numbers: primeros promo_limit reservados, elegir aleatoriamente entre pagados
+    private function drawPromoEarlyNumbers(Raffle $raffle)
+    {
+        $participants = $raffle->numbers()
             ->whereNotNull('reserved_at')
             ->orderBy('reserved_at', 'asc')
             ->take($raffle->promo_limit)
             ->get();
-    }
 
-    // 🎁 PROMO: de los participantes, filtrar sold y elegir aleatoriamente
-    private function drawPromo(Raffle $raffle)
-    {
-        $participants = $this->getPromoParticipants($raffle);
-        $eligible     = $participants->where('status', 'sold');
+        $eligible = $participants->where('status', 'sold');
 
         if ($eligible->isEmpty()) {
             return collect();
@@ -331,6 +349,37 @@ class AdminController extends Controller
         $count = min($raffle->promo_winner_count, $eligible->count());
 
         return $eligible->shuffle()->take($count);
+    }
+
+    // 🎁 PROMO most_numbers: gana quien más números compró; empate se rompe por fecha de compra más antigua
+    private function drawPromoMostNumbers(Raffle $raffle)
+    {
+        $soldNumbers = $raffle->numbers()
+            ->where('status', 'sold')
+            ->whereNotNull('customer_name')
+            ->where('customer_name', '!=', '')
+            ->get();
+
+        if ($soldNumbers->isEmpty()) {
+            return collect();
+        }
+
+        $ranked = $soldNumbers
+            ->groupBy('customer_name')
+            ->map(fn($nums) => [
+                'count'          => $nums->count(),
+                'earliest_at'    => $nums->min('reserved_at'),
+                'representative' => $nums->sortBy('reserved_at')->first(),
+            ])
+            ->sort(function ($a, $b) {
+                if ($a['count'] !== $b['count']) {
+                    return $b['count'] - $a['count'];
+                }
+                return strcmp($a['earliest_at'] ?? '', $b['earliest_at'] ?? '');
+            })
+            ->take($raffle->promo_winner_count ?: 1);
+
+        return $ranked->map(fn($item) => $item['representative']);
     }
 
     // 🎁 PROMO: endpoint para ejecutar el sorteo de promo
@@ -382,10 +431,13 @@ class AdminController extends Controller
         $winners = $this->drawPromo($raffle);
 
         if ($winners->isEmpty()) {
-            $limit = $raffle->promo_limit;
+            $message = $raffle->promo_type === 'most_numbers'
+                ? 'No hay números vendidos con cliente asignado para determinar el ganador de la promo.'
+                : "Ninguno de los primeros {$raffle->promo_limit} números reservados está confirmado como pagado. No hay participantes elegibles para la promo.";
+
             return response()->json([
                 'success' => false,
-                'message' => "Ninguno de los primeros {$limit} números reservados está confirmado como pagado. No hay participantes elegibles para la promo.",
+                'message' => $message,
             ], 422);
         }
 

@@ -307,6 +307,8 @@
             </div>
         @endif
 
+        @include('partials._promo_badge', ['raffle' => $raffle])
+
         {{-- BOTÓN WHATSAPP --}}
         <button onclick="reservarWhatsApp()"
                 class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-black py-4 rounded-2xl text-base shadow-lg shadow-green-900/40 active:scale-95 transition duration-150 flex items-center justify-center gap-2">
@@ -331,9 +333,18 @@
 function reservarWhatsApp() {
     const nombre = {!! json_encode($raffle->name) !!};
     const precio = {!! json_encode(number_format($raffle->price, 0, ',', '.')) !!};
+    @if($raffle->promo_enabled && $raffle->promo_prize_text)
+        @if($raffle->promo_type === 'most_numbers')
+    const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Gana esta promo la persona que compre la mayor cantidad de números del sorteo.\n\n🔥 Cuantos más números reservás, más cerca estás de llevarte el premio principal y la promo especial.";
+        @else
+    const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Los primeros en reservar y confirmar pago participan por esta promo especial.";
+        @endif
+    @else
+    const promoLinea = "";
+    @endif
 
     const msg = "Hola! Quiero reservar un número para el sorteo *" + nombre +
-                "* (Gs. " + precio + " por número). ¿Cuáles están disponibles?";
+                "* (Gs. " + precio + " por número)." + promoLinea + "\n\n¿Cuáles están disponibles?";
 
     const url = "https://wa.me/595986770148?text=" + encodeURIComponent(msg);
 

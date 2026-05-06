@@ -63,6 +63,8 @@
 
     </div>
 
+    @include('partials._promo_badge', ['raffle' => $raffle])
+
     <!-- 🔥 PROGRESO -->
     <div class="bg-[#141414] p-4 rounded-2xl border border-white/10 shadow">
 

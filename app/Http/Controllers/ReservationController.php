@@ -50,7 +50,7 @@ class ReservationController extends Controller
                     'status'        => 'reserved',
                     'customer_name' => $request->name,
                     'reserved_at'   => now(),
-                    'expires_at'    => now()->addMinutes(15),
+                    'expires_at'    => null,
                     'paid'          => false
                 ]);
 

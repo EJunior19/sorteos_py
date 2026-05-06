@@ -62,7 +62,8 @@ class AnalyzeRaffleCandidates extends Command
     ];
 
     // ─── Filtros ────────────────────────────────────────────────────────────────
-    private const MAPY_REPORTS_DIR                      = '/var/www/reportes_mapy';
+    private const MAPY_REPORTS_DIR                      = '/var/www/nccPa_vr';
+    private const MAPY_ZIP_PASSWORD                     = '2520';
     private const MIN_PRIZE_COST_GS                     = 60000;
     private const MIN_PERCEIVED_VALUE_SCORE             = 68;
     private const MIN_MAIN_PRIZE_PERCEIVED_VALUE_SCORE  = 90;  // ← subido de 82 a 90
@@ -90,7 +91,7 @@ class AnalyzeRaffleCandidates extends Command
         $csvPath = $this->resolveCsvPath();
 
         if (!$csvPath) {
-            $this->error('No se encontro CSV. Usa --csv=/ruta/productos.csv o guarda reportes MAPY en ' . self::MAPY_REPORTS_DIR . '.');
+            $this->error('No se encontro CSV. Usa --csv=/ruta/productos.csv o guarda reportes MAPY CSV/ZIP en ' . self::MAPY_REPORTS_DIR . '.');
             return self::FAILURE;
         }
 
@@ -167,6 +168,15 @@ class AnalyzeRaffleCandidates extends Command
 
         foreach ($paths as $path) {
             if (is_file($path) && is_readable($path)) {
+                if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'zip') {
+                    $csvFromZip = $this->extractCsvFromZip($path);
+                    if ($csvFromZip) {
+                        return $csvFromZip;
+                    }
+
+                    continue;
+                }
+
                 return $path;
             }
         }
@@ -183,7 +193,12 @@ class AnalyzeRaffleCandidates extends Command
         $latest     = null;
         $latestDate = null;
 
-        foreach (glob(self::MAPY_REPORTS_DIR . '/*.csv') ?: [] as $path) {
+        $files = array_merge(
+            glob(self::MAPY_REPORTS_DIR . '/*.csv') ?: [],
+            glob(self::MAPY_REPORTS_DIR . '/*.zip') ?: []
+        );
+
+        foreach ($files as $path) {
             $filename = basename($path);
             if (!preg_match('/(\d{4}-\d{2}-\d{2})/', $filename, $matches)) {
                 continue;
@@ -197,6 +212,55 @@ class AnalyzeRaffleCandidates extends Command
         }
 
         return $latest;
+    }
+
+    private function extractCsvFromZip(string $zipPath): ?string
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            $this->warn('No se puede leer ZIP porque la extension ZipArchive no esta instalada.');
+            return null;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath) !== true) {
+            return null;
+        }
+        $zip->setPassword(self::MAPY_ZIP_PASSWORD);
+
+        $csvIndex = null;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (!str_ends_with($name, '/') && strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'csv') {
+                $csvIndex = $i;
+                break;
+            }
+        }
+
+        if ($csvIndex === null) {
+            $zip->close();
+            return null;
+        }
+
+        $contents = $zip->getFromIndex($csvIndex);
+        $zip->close();
+
+        if ($contents === false || trim($contents) === '') {
+            return null;
+        }
+
+        $storageExtractDir = storage_path('app/mapy_reports');
+        $extractDir = is_writable(dirname($storageExtractDir))
+            ? $storageExtractDir
+            : sys_get_temp_dir() . '/sorteos_py_mapy_reports';
+
+        if (!is_dir($extractDir)) {
+            mkdir($extractDir, 0775, true);
+        }
+
+        $target = $extractDir . '/' . pathinfo($zipPath, PATHINFO_FILENAME) . '-' . substr(sha1($zipPath . '|' . filemtime($zipPath)), 0, 12) . '.csv';
+        file_put_contents($target, $contents);
+
+        return $target;
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -501,7 +565,8 @@ class AnalyzeRaffleCandidates extends Command
             )
             ->take(70)
             ->map(function ($principal) use ($secondaryPool, $history, $rotation) {
-                $secondary = $this->secondaryPrizesFor($principal, $secondaryPool);
+                $theme = $this->themeForPrincipal($principal);
+                $secondary = $this->secondaryPrizesFor($principal, $secondaryPool, $theme);
 
                 if ($secondary->count() < 4) {
                     return null;
@@ -573,6 +638,17 @@ class AnalyzeRaffleCandidates extends Command
         return count($types) > 0 ? min(100, ($matches / count($types)) * 120) : 50;
     }
 
+    private function themeForPrincipal(array $principal): ?string
+    {
+        $type = $this->marketingType($principal['product_name'], $principal['category']);
+
+        if (in_array($type, self::COMBO_THEMES['premium'], true)) {
+            return 'premium';
+        }
+
+        return null;
+    }
+
     /**
      * Firma de estructura del combo: evita repetir la misma "forma".
      * Ej: "whisky|perfume|termo|hogar|belleza" → mismo mix = penalizar.
@@ -593,12 +669,29 @@ class AnalyzeRaffleCandidates extends Command
     //  SELECCIÓN DE PREMIOS SECUNDARIOS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    private function secondaryPrizesFor(array $principal, Collection $pool): Collection
+    private function secondaryPrizesFor(array $principal, Collection $pool, ?string $theme = null): Collection
     {
         $principalKey    = $this->candidateKey($principal);
         $targetMax       = max(50000, (int) min(180000, $principal['cost_gs'] * 0.28));
         $principalType   = $this->marketingType($principal['product_name'], $principal['category']);
-        $principalTheme  = null;   // se determinará en themeForPrizes luego
+        $premiumIncompatible = [
+            'carretilla', 'album', 'digital', 'powerp',
+            'ferreteria', 'herramienta', 'jardin', 'pesca', 'camping',
+        ];
+        $isPremiumIncompatible = function (array $candidate) use ($theme, $premiumIncompatible): bool {
+            if ($theme !== 'premium') {
+                return false;
+            }
+
+            $name = $this->normalizeText($candidate['product_name']);
+            foreach ($premiumIncompatible as $word) {
+                if (str_contains($name, $word)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
 
         $usedTypes      = [$principalType];
         $usedCategories = [$principal['category']];
@@ -607,6 +700,7 @@ class AnalyzeRaffleCandidates extends Command
         // Ordenamos pool priorizando afinidad temática, diversidad y novedad
         $ranked = $pool
             ->reject(fn ($c) => $this->candidateKey($c) === $principalKey)
+            ->reject(fn ($c) => $isPremiumIncompatible($c))
             ->sortByDesc(function ($c) use ($principal, $targetMax, $principalOffset, $principalType) {
                 // Bonus si complementa el tema del principal
                 $themeAffinity = $this->typeThemeAffinity($c['marketing_type'] ?? '', $principalType);

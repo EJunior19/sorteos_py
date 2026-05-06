@@ -29,8 +29,9 @@
     <h1 class="text-4xl font-extrabold text-yellow-400 mb-2">🎰 SORTEO EN VIVO</h1>
     <p class="text-gray-400 text-sm mb-6">{{ $raffle->name }}</p>
 
-    <audio id="spinSound" src="/sounds/spin.mp3"></audio>
-    <audio id="winSound"  src="/sounds/win.mp3"></audio>
+    <audio id="spinSound" src="/sounds/spin.mp3" preload="auto"></audio>
+    <audio id="winSound"  src="/sounds/win.mp3" preload="auto"></audio>
+    <audio id="finalSound" src="/sounds/final.mp3" preload="auto"></audio>
 
     <div id="confetti" class="pointer-events-none fixed inset-0 overflow-hidden z-40"></div>
 
@@ -121,14 +122,19 @@
         @if($promoResults->isEmpty())
         {{-- Promo pendiente --}}
         <div id="promoPending" class="bg-yellow-900/20 border border-yellow-500/40 rounded-2xl p-5 text-center">
-            <div class="text-yellow-400 font-bold text-lg mb-1">🎁 {{ $raffle->promo_prize_text }}</div>
+            <div class="text-yellow-400 font-bold text-lg mb-1">🎁 Premio especial</div>
+            <div class="text-white font-semibold text-base mb-1">{{ $raffle->promo_prize_text }}</div>
             <div class="text-gray-400 text-sm mb-4">
-                Primeros {{ $raffle->promo_limit }} reservados &middot; {{ $raffle->promo_winner_count }} ganador(es)
+                @if($raffle->promo_type === 'most_numbers')
+                    🏆 Gana la persona que compró la mayor cantidad de números &middot; {{ $raffle->promo_winner_count }} ganador(es)
+                @else
+                    🏆 Primeros {{ $raffle->promo_limit }} en reservar &middot; {{ $raffle->promo_winner_count }} ganador(es)
+                @endif
             </div>
             <button id="promoBtn"
                 onclick="runPromo()"
                 class="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-3 rounded-xl font-bold transition">
-                🎁 Sortear Promo
+                🏆 Revelar ganador de la promo
             </button>
         </div>
 
@@ -215,6 +221,10 @@ let prizes = @json($prizes->values());
 let isRunning         = false;
 let countdownInterval = null;
 let spinInterval      = null;
+let finishTimeout     = null;
+let currentRunId      = 0;
+let winSoundRunId     = null;
+let audioUnlocked     = false;
 
 // Índice del premio actual (primer sin ganador)
 let currentPrizeIdx = isMultiPrize
@@ -230,6 +240,7 @@ const winnerNumberEl     = document.getElementById('winnerNumber');
 const winnerNameEl       = document.getElementById('winnerName');
 const spinSound          = document.getElementById('spinSound');
 const winSound           = document.getElementById('winSound');
+const finalSound         = document.getElementById('finalSound');
 const confettiEl         = document.getElementById('confetti');
 const countdownOverlay   = document.getElementById('countdownOverlay');
 const countdownValue     = document.getElementById('countdownValue');
@@ -239,6 +250,127 @@ const currentPrizeLabel  = document.getElementById('currentPrizeLabel');
 const currentPrizeDesc   = document.getElementById('currentPrizeDesc');
 const finalSummary       = document.getElementById('finalSummary');
 const finalPrizesList    = document.getElementById('finalPrizesList');
+
+// ── Audio ────────────────────────────────────────────────────────────────────
+async function unlockAudio() {
+    if (audioUnlocked) return;
+
+    const sounds = [spinSound, winSound, finalSound].filter(Boolean);
+
+    try {
+        await Promise.all(sounds.map(async sound => {
+            sound.muted = true;
+            sound.currentTime = 0;
+            await sound.play();
+            sound.pause();
+            sound.currentTime = 0;
+            sound.muted = false;
+        }));
+        audioUnlocked = true;
+    } catch (e) {
+        sounds.forEach(sound => {
+            sound.pause();
+            sound.currentTime = 0;
+            sound.muted = false;
+        });
+    }
+}
+
+async function startSpinSound() {
+    if (!spinSound) return;
+
+    try {
+        spinSound.pause();
+        spinSound.currentTime = 0;
+        spinSound.loop = true;
+        await spinSound.play();
+    } catch (e) {
+        console.warn('El navegador bloqueó el audio de giro.', e);
+    }
+}
+
+function stopSpinSound() {
+    if (!spinSound) return;
+
+    try {
+        spinSound.pause();
+        spinSound.currentTime = 0;
+        spinSound.loop = false;
+    } catch (e) {}
+}
+
+async function playWinSoundOnce(runId) {
+    if (!winSound || winSoundRunId === runId) return;
+
+    winSoundRunId = runId;
+
+    try {
+        winSound.pause();
+        winSound.currentTime = 0;
+        winSound.loop = false;
+        await winSound.play();
+    } catch (e) {
+        console.warn('El navegador bloqueó el audio de ganador.', e);
+    }
+}
+
+function playFinalSound() {
+    if (!finalSound) return;
+
+    try {
+        finalSound.pause();
+        finalSound.currentTime = 3;
+
+        // 🔉 empieza bajo
+        finalSound.volume = 0.1;
+
+        finalSound.play();
+
+        const start = 3;
+        const end = 9;
+        const duration = (end - start) * 1000; // 6 segundos
+        const stepTime = 100; // cada 100ms sube volumen
+        const steps = duration / stepTime;
+        let currentStep = 0;
+
+        // 📈 subir volumen progresivo
+        const fadeInterval = setInterval(() => {
+            currentStep++;
+
+            // curva progresiva (más natural)
+            const progress = currentStep / steps;
+            finalSound.volume = Math.min(1, Math.pow(progress, 3)); // curva cuadrática
+
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+            }
+        }, stepTime);
+
+        // 💥 corte final exacto
+        finalSound.ontimeupdate = () => {
+            if (finalSound.currentTime >= end) {
+                finalSound.pause();
+                finalSound.ontimeupdate = null;
+            }
+        };
+
+    } catch (e) {
+        console.warn('Error sonido final', e);
+    }
+}
+
+function playFinalSound() {
+    if (!finalSound) return;
+
+    try {
+        finalSound.pause();
+        finalSound.currentTime = 0;
+        finalSound.loop = false;
+        finalSound.play();
+    } catch (e) {
+        console.warn('Error sonido final', e);
+    }
+}
 
 // ── Track ─────────────────────────────────────────────────────────────────────
 function buildTrack() {
@@ -423,10 +555,12 @@ function resetUI() {
     isRunning = false;
     clearInterval(countdownInterval);
     clearInterval(spinInterval);
+    clearTimeout(finishTimeout);
     spinBtn.disabled = false;
     spinBtn.classList.remove('opacity-60','cursor-not-allowed');
 
-    try { spinSound.pause(); spinSound.currentTime = 0; } catch(e) {}
+    stopSpinSound();
+    stopWinSound();
 }
 
 // ── Inicio de secuencia ───────────────────────────────────────────────────────
@@ -434,6 +568,11 @@ function startSequence() {
     if (isRunning || baseItems.length === 0) return;
 
     isRunning = true;
+    currentRunId++;
+    winSoundRunId = null;
+    clearTimeout(finishTimeout);
+    unlockAudio();
+
     winnerBox.classList.add('hidden');
     document.querySelectorAll('.draw-card').forEach(el => el.classList.remove('winner-card'));
 
@@ -464,6 +603,8 @@ function startSequence() {
 
 // ── Sorteo principal ──────────────────────────────────────────────────────────
 async function runDraw() {
+    const runId = currentRunId;
+
     buildTrack();
 
     // Forzar reflow para que la transición funcione tras rebuild
@@ -472,11 +613,7 @@ async function runDraw() {
     spinStatusBox.classList.remove('hidden');
     spinTimer.textContent = '6';
 
-    try {
-        spinSound.currentTime = 0;
-        spinSound.loop = true;
-        await spinSound.play().catch(() => {});
-    } catch(e) {}
+    await startSpinSound();
 
     // Body del request
     const body = new URLSearchParams({ _token: csrfToken });
@@ -497,12 +634,14 @@ async function runDraw() {
             body: body.toString(),
         });
     } catch(e) {
+        if (runId !== currentRunId) return;
         alert('No se pudo conectar con el servidor.');
         resetUI();
         return;
     }
 
     if (!response.ok) {
+        if (runId !== currentRunId) return;
         const err = await response.json().catch(() => ({}));
         alert(err.message ?? 'Ocurrió un error al elegir el ganador.');
         resetUI();
@@ -542,14 +681,13 @@ async function runDraw() {
 
     centerCard(target, true);
 
-    setTimeout(async () => {
+    finishTimeout = setTimeout(async () => {
+        if (runId !== currentRunId) return;
+
         clearInterval(spinInterval);
 
-        try {
-            spinSound.pause(); spinSound.currentTime = 0;
-            winSound.currentTime = 0;
-            await winSound.play().catch(() => {});
-        } catch(e) {}
+        stopSpinSound();
+        await playWinSoundOnce(runId);
 
         spinStatusBox.classList.add('hidden');
         target.classList.add('winner-card');
@@ -569,6 +707,10 @@ async function runDraw() {
                 // Todos los premios sorteados
                 if (currentPrizeLabel) currentPrizeLabel.textContent = '🎉 ¡Sorteo completado!';
                 if (currentPrizeDesc)  currentPrizeDesc.textContent  = '';
+
+                setTimeout(() => {
+                    playFinalSound();
+                }, 1000);
 
                 showFinalSummary();
                 if (promoEnabled) showPromoSection();

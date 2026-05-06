@@ -67,6 +67,20 @@
                         🎟 {{ $r->total_numbers }} números disponibles
                     </p>
 
+                    @if($r->promo_enabled && $r->promo_prize_text)
+                    <div class="mt-3 bg-yellow-900/20 border border-yellow-500/30 rounded-xl px-3 py-2.5 space-y-0.5">
+                        <p class="text-yellow-400 font-bold text-xs uppercase tracking-wide">🎁 Promo especial incluida</p>
+                        <p class="text-white text-xs font-semibold">{{ $r->promo_prize_text }}</p>
+                        <p class="text-gray-400 text-[11px]">
+                            @if($r->promo_type === 'most_numbers')
+                                🏆 Gana quien compre más números · ¡Cuantos más, más chances!
+                            @else
+                                🏆 Primeros {{ $r->promo_limit }} en reservar participan.
+                            @endif
+                        </p>
+                    </div>
+                    @endif
+
                     <!-- PROGRESO -->
                     <div class="mt-3">
                         <div class="w-full bg-gray-700 rounded-full h-2">
