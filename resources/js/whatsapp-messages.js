@@ -91,268 +91,228 @@ ${promo_prize_text}
     let mensajeUrgencia = [];
     if (numerosLibres === 0) {
         mensajeUrgencia = [
-`🔥🔥🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 *¡SE AGOTÓ!* 🚨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* ya no tiene números disponibles
+`✅ *¡Se completó!*
 
-¡Gracias a todos los que participaron! 🙏
-🍀 ¡Hasta el próximo sorteo!`,
+🎟️ *${raffle_name}* ya no tiene números disponibles.
 
-`🎊 *¡SOLD OUT TOTAL!* 🎊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* está LLENO 🙌
+Gracias a todos por participar 🙌
+Ahora a esperar el sorteo 🏆`,
 
-¡Todos los números tienen dueño!
-💪 ¡Qué grupo más comprometido!
+`🔥 *¡Se llenó!*
 
-🔔 Mantenete atento para el próximo sorteo
-🍀 ¡Buena suerte a todos!`,
+Todos los números de *${raffle_name}* tienen dueño.
 
-`✅ *CUPO COMPLETO* ✅
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎟️ *${raffle_name}*
+Gracias por la confianza 🙌
+Atentos al resultado 📲`,
 
-Ya se reservaron todos los números 🎉
-Gracias por sumarse tan rápido 🙌
+`🏁 *Cupo completo*
 
-🏆 Ahora solo queda esperar el sorteo
-🍀 *¡Muchísima suerte a todos!*`,
+*${raffle_name}* cerró las reservas.
 
-`🚀 *LISTO, SE COMPLETÓ* 🚀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* llegó al 100%.
+¡Tremenda respuesta, gracias a todos!
+Se viene el sorteo 🏆 🍀`,
 
-No quedan números disponibles.
-Gracias por la confianza y por moverse rápido 🙌
+`🎊 *Sold out total*
 
-🏆 Ahora viene la parte más esperada
-🍀 *¡Éxitos a todos!*`,
+*${raffle_name}* no tiene más lugares.
 
-`🎯 *OBJETIVO CUMPLIDO* 🎯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Todos los números de *${raffle_name}* ya tienen participante.
+Gracias por participar y acompañar 🙌
+Atentos al grupo para el resultado 📣`,
 
-Gracias por estar atentos y sumarse.
-El sorteo queda cerrado para nuevas reservas ✅
+`🙌 *¡Gracias, grupo!*
 
-🔔 Pendientes al resultado
-🍀 *¡Que gane la suerte!*`,
-
-`📣 *YA NO HAY LUGARES* 📣
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* se completó.
-
-El cupo está cerrado y todos los números fueron tomados.
-Gracias por la tremenda respuesta 🔥
-
-🏆 Próximo paso: sorteo
-🍀 *Mucha suerte!*`,
-
-`🔥 *SE LLENÓ RAPIDÍSIMO* 🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* ya no tiene números libres.
-
-Gracias a todos los que reservaron y confirmaron 🙌
-
-📲 Atentos al grupo
-🏆 *Se viene el momento del ganador!*`,
-
-`🏁 *CIERRE TOTAL* 🏁
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo *${raffle_name}* queda completo.
-
-No se aceptan más reservas para este sorteo.
-Gracias por participar y acompañar 🙏
-
-🍀 *Ahora a esperar el resultado!*`,
-
-`🎊 *GRACIAS, GRUPO* 🎊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 *${raffle_name}* está completo.
 
-Todos los números ya fueron reservados.
-La respuesta fue excelente 🔥
+Todos los números fueron reservados 🎟️
+Ahora a cruzar los dedos 🍀`,
 
-🏆 Se viene el sorteo
-🍀 *Suerte para todos!*`,
+`📣 *Números agotados*
 
-`✅ *PARTICIPANTES COMPLETOS* ✅
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ya tenemos todos los lugares ocupados en:
-🎟️ *${raffle_name}*
+El sorteo *${raffle_name}* cerró.
 
-Gracias por sumarse a tiempo.
-Ahora solo queda esperar el gran momento 🏆
-
-🍀 *¡A cruzar los dedos!*`,
+Gracias a los que se movieron rápido 🔥
+Publicamos el resultado muy pronto 🏆`,
         ];
 
     } else if (numerosLibres <= 5) {
         mensajeUrgencia = [
-`🔥 *¡ÚLTIMOS ${numerosLibres} NÚMEROS!* 🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎫 *DISPONIBLES:*
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💸 Transferí y mandá el comprobante
-✅ ¡Y ya estás adentro!
-🍀 ¡No te pierdas esta oportunidad!`,
+`🔥 *Últimos ${numerosLibres} números*
 
-`⏰ *¡AHORA O NUNCA!* ⏰
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-😱 Solo quedan *${numerosLibres}* número(s)!
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El que deja para mañana, se queda sin nada 😤
-🏆 *¡RESERVÁ AHORA MISMO!*`,
+🎟️ *${raffle_name}*
 
-`💥 *¡CORRAN QUE SE VAN!* 💥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Quedan *${numerosLibres}* número(s) sin dueño 👀
+🎫 Disponibles:
 ${numerosDisponiblesLista}
-💳 Alias: *${alias}* — Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 Avisá a tus amigos AHORA MISMO
-👉 Primero en llegar, primero en participar!`,
 
-`🏃 *¡NO TE QUEDES AFUERA!* 🏃
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Solo *${numerosLibres}* número(s) sin reservar!
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+📩 Elegí y mandá comprobante. Se sortea apenas se complete ✅`,
+
+`⏰ *¡Ahora o nunca!*
+
+Solo quedan *${numerosLibres}* número(s) disponibles.
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Primero en llegar, primero en participar 🎯`,
+
+`🚨 *Se van los últimos*
+
+*${numerosLibres}* números sin dueño en *${raffle_name}*:
 ${numerosDisponiblesLista}
-Transferí Gs. ${precioFormato} — Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🍀 *¡Tu número de la suerte te está esperando!* 🍀`,
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Avisá a tus amigos antes que se vayan 📲`,
+
+`🏃 *No te quedes afuera*
+
+Solo *${numerosLibres}* número(s) disponibles en *${raffle_name}*.
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+🍀 Tu número te está esperando — no lo dejes pasar`,
         ];
 
     } else if (porcentajeVendido >= 70) {
         mensajeUrgencia = [
-`⚠️ *¡SE ACERCA EL FINAL!* ⚠️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 Ya se vendió el *${porcentajeVendido}%*!
-🎫 *DISPONIBLES:*
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ ¡Todavía hay tiempo, pero poco!
-🍀 ¡Buena suerte!`,
+`⚠️ *Se acerca el final*
 
-`🔥 *¡MOMENTO CRÍTICO!* 🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ya se vendió el *${porcentajeVendido}%* de *${raffle_name}*.
+
+🎫 Disponibles:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Todavía hay tiempo, pero poco ⏳`,
+
+`🔥 *Momento crítico*
+
 *${porcentajeVendido}% vendido* y subiendo 📈
-🎫 *LO QUE QUEDA:*
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ ¡Cada minuto que pasa hay menos números!
-🏆 *¡ANOTATE YA!*`,
 
-`📢 *¡ÚLTIMA LLAMADA!* 📢
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Solo quedan *${numerosLibres}* números disponibles 😬
+🎫 Lo que queda:
 ${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 No esperes más, el cupo se llena!
-🍀 ¡Participá antes que sea tarde!`,
 
-`⏳ *¡EL RELOJ CORRE!* ⏳
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-¡Ya casi listo! *${porcentajeVendido}%* completado 🎯
-🎫 *QUEDAN:*
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Cada minuto hay menos números. Anotate ya 🏆`,
+
+`📢 *Última llamada*
+
+Solo quedan *${numerosLibres}* números en *${raffle_name}* 😬
+
 ${numerosDisponiblesLista}
-💳 Alias: *${alias}* — Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ ¡Los que no se apuren, se pierden el sorteo!
-🍀 *¡Animate ahora!*`,
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Participá antes que sea tarde 🍀`,
+
+`⏳ *El reloj corre*
+
+*${porcentajeVendido}%* completado y quedan pocos lugares.
+
+🎫 Disponibles:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Animate ahora 🙌`,
         ];
 
     } else if (porcentajeVendido >= 40) {
         mensajeUrgencia = [
-`⚡ *¡SE VENDE RÁPIDO!* ⚡
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 *${porcentajeVendido}% vendido* — ¡vamos bien!
-🎫 *DISPONIBLES:*
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ ¡Anotate antes que se agoten!
-🍀 ¡Buena suerte!`,
+`⚡ *Se vende rápido*
 
-`🚀 *¡ESTÁN VOLANDO LOS NÚMEROS!* 🚀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${porcentajeVendido}% vendido* en *${raffle_name}* 📈
+
+🎫 Disponibles:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Anotate antes que se agoten ✅`,
+
+`🚀 *Están volando los números*
+
 Ya vendimos *${numerosVendidos}* de *${totalNumeros}* 🔥
-🎫 *LIBRES TODAVÍA:*
-${numerosDisponiblesLista}
-💳 Alias: *${alias}* — Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-¡Avisá a quien falta! 📣
-👉 *¡Que no se quede nadie afuera!*`,
 
-`👀 *¡MIRÁ CÓMO VUELAN!* 👀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎫 Libres todavía:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+¡Avisá a quien falta, que no se quede nadie afuera! 📣`,
+
+`👀 *Mirá cómo vuelan*
+
 *${porcentajeVendido}%* del sorteo ya reservado 😮
-Todavía podés entrar:
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 ¡Elegí el tuyo y transferí ya!
-🍀 *¡La suerte está de tu lado!*`,
 
-`💨 *¡A ESTE RITMO NO DURAN!* 💨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📈 Ya somos *${numerosVendidos}* participantes!
-Números disponibles:
 ${numerosDisponiblesLista}
-💳 Alias: *${alias}* — Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏃 ¡No te quedes mirando!
-🏆 *¡Participá y podés ganar!*`,
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Elegí el tuyo y transferí ya 🎯`,
+
+`💨 *A este ritmo no duran*
+
+Ya somos *${numerosVendidos}* participantes en *${raffle_name}*.
+
+🎫 Disponibles:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+No te quedes mirando 🏃 Participá y podés ganar 🏆`,
         ];
 
     } else {
         mensajeUrgencia = [
-`🎉 *¡TODAVÍA HAY NÚMEROS!* 🎉
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎫 *DISPONIBLES:*
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👉 ¡Elegí tu número favorito y participá!
-🍀 *¡Buena suerte a todos!*`,
+`🎉 *Todavía hay números*
 
-`🌟 *¡ABIERTA LA INSCRIPCIÓN!* 🌟
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎫 Disponibles:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Elegí tu número favorito y participá 🍀`,
+
+`🌟 *Inscripción abierta*
+
 🎟️ *${raffle_name}*
-¡Los números están disponibles!
-${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔥 ¡Empezá el año ganando!
-🍀 *¡El tuyo te está esperando!*`,
 
-`🎊 *¡UNITE AL GRUPO GANADOR!* 🎊
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📣 ¡El sorteo está en marcha!
-Quedan *${numerosLibres}* números disponibles:
+Los números están disponibles 👀
 ${numerosDisponiblesLista}
-💰 Gs. ${precioFormato} — 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-¡Cada número es una oportunidad de ganar! 🏆
-💪 *¡Animense, que todavía hay lugar!*`,
 
-`💫 *¡TU SUERTE TE ESPERA HOY!* 💫
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-No esperes más, participá en *${raffle_name}* 🎰
-Números libres:
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+El tuyo te está esperando 🍀`,
+
+`🎊 *Unite al grupo ganador*
+
+El sorteo está en marcha.
+Quedan *${numerosLibres}* números disponibles.
 ${numerosDisponiblesLista}
-💳 Alias: *${alias}* — Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌈 ¿Y si hoy es tu día de suerte?
-🍀 *¡No lo sabrás si no participás!*`,
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+Cada número es una oportunidad 🏆`,
+
+`💫 *Tu suerte te espera*
+
+Participá en *${raffle_name}* 🎟️
+
+🎫 Números libres:
+${numerosDisponiblesLista}
+
+💰 Gs. ${precioFormato} — Alias: *${alias}*
+
+¿Y si hoy es tu día? No lo sabrás si no participás 🍀`,
         ];
     }
 
@@ -479,227 +439,246 @@ ${numerosDisponiblesLista}
     }
 
     const urgenciaNivel1 = [
-`🎟️ *TODAVÍA HAY BUENOS NÚMEROS* 🎟️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* está abierto y todavía hay varias opciones para elegir.
+`🎟️ *${raffle_name}*
+
+Todavía hay buenos números disponibles 👀
 
 🎫 Disponibles:
 ${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Elegí tranquilo, pero no dejes pasar tu número favorito 🍀`,
 
-`🌟 *ARRANCAMOS CON TODO* 🌟
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo *${raffle_name}* ya está disponible.
+Elegí tranquilo y participá ✅`,
 
-Todavía hay buenos números libres y todos tienen chance.
-💰 Gs. ${precioFormato} por número
-💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Participá y sumate desde el inicio 🙌`,
-
-`🎉 *BUEN MOMENTO PARA ENTRAR* 🎉
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}*
-
-Hay números disponibles y podés elegir con calma.
-${listaPremios}
-💰 Gs. ${precioFormato}
-💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Tu número puede estar esperando ahí 👀`,
-
-`📌 *ENTRÁ CON TIEMPO* 📌
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Todavía hay buenos números para *${raffle_name}*.
-
-🎫 Disponibles:
-${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
-💰 Gs. ${precioFormato}
-💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Elegí, transferí y quedás participando ✅`,
-
-`🍀 *TU CHANCE ESTÁ DISPONIBLE* 🍀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo recién está tomando forma y hay lugar para sumarte.
+`🌟 *Arrancamos con todo*
 
 🎟️ *${raffle_name}*
-📊 ${porcentajeVendido}% vendido
-💰 Gs. ${precioFormato}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Participá desde ahora y elegí mejor 🙌`,
 
-`🎁 *HAY PARA ELEGIR TODAVÍA* 🎁
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* tiene números libres y buenos premios en juego.
-
-🎫 Números:
+🎫 Disponibles:
 ${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Entrá con calma, pero entrá hoy ✅`,
 
-`🙌 *SUMATE DESDE EL ARRANQUE* 🙌
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Todavía estamos en buena etapa para elegir número en *${raffle_name}*.
+Sumate desde el inicio 🙌`,
+
+`🎉 *Abierto — todavía hay lugar*
+
+🎟️ *${raffle_name}*
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+📩 Elegí y mandá comprobante para confirmar`,
+
+`📌 *Entrá con tiempo*
+
+🎟️ *${raffle_name}*
+
+Hay números para elegir y podés hacerlo tranquilo 👌
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Elegí, transferí y quedás participando ✅`,
+
+`🍀 *Tu chance está disponible*
+
+🎟️ *${raffle_name}* — ${porcentajeVendido}% vendido
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Participá desde ahora y elegí bien 🙌`,
+
+`🎁 *Hay para elegir todavía*
+
+🎟️ *${raffle_name}*
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Entrá hoy antes que se mueva más 🔥`,
+
+`🙌 *Sumate desde el arranque*
+
+🎟️ *${raffle_name}*
 
 ${listaPremios}
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Participá y asegurá tu lugar 🍀`,
+
+Asegurá tu lugar hoy 🍀`,
     ];
 
     const urgenciaNivel2 = [
-`🚀 *EL SORTEO YA ESTÁ AVANZANDO* 🚀
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ya vamos *${porcentajeVendido}% vendido* en *${raffle_name}*.
+`⚡ *Ya vamos ${porcentajeVendido}% vendido*
 
-Todavía hay lugar, pero el movimiento ya empezó.
+🎟️ *${raffle_name}*
+
 🎫 Disponibles:
 ${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 Gs. ${precioFormato} — Alias: *${alias}*`,
 
-`📣 *NO TE QUEDES ATRÁS* 📣
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* está tomando ritmo.
-
-Vendidos: *${numerosVendidos}/${totalNumeros}*
-Libres: *${numerosLibres}*
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Elegí el tuyo antes de que se achique la lista 🔥`,
 
-`⚡ *YA HAY MOVIMIENTO EN EL GRUPO* ⚡
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo está avanzando y cada número reservado cuenta.
+Elegí antes de que se achique más la lista 🔥`,
+
+`📣 *No te quedes atrás*
+
+Vendidos: *${numerosVendidos}/${totalNumeros}* — Libres: *${numerosLibres}*
+
+🎟️ *${raffle_name}*
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Entrá ahora y asegurá tu participación 🙌`,
+
+`🔥 *Se está moviendo lindo*
+
+*${raffle_name}* ya no está quieto.
+
+Quedan *${numerosLibres}* números disponibles 👀
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+No esperes a que se achique más la lista 📲`,
+
+`📈 *Ya pasamos la mitad*
+
+*${raffle_name}* sigue sumando participantes.
+
+📊 Avance: *${porcentajeVendido}%* — Libres: *${numerosLibres}*
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+No te quedes mirando desde afuera 🔥`,
+
+`🎯 *El grupo ya está entrando*
+
+🎟️ *${raffle_name}*
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+📩 Mandá comprobante y quedás adentro ✅`,
+
+`🟡 *Buen momento para decidir*
+
+El sorteo avanza y todavía hay oportunidad.
 
 🎟️ *${raffle_name}*
 📊 *${porcentajeVendido}% vendido*
+
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Entrá ahora y asegurá tu participación 🍀`,
 
-`🔥 *SE ESTÁ MOVIENDO LINDO* 🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* ya no está quieto.
+Elegí tu número hoy 🙌`,
 
-Vendidos: *${numerosVendidos}/${totalNumeros}*
-Quedan: *${numerosLibres}*
-💰 Gs. ${precioFormato}
-💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-No esperes a que se achique más la lista 👀`,
+`🚀 *Números volando*
 
-`🎯 *EL GRUPO YA ESTÁ ENTRANDO* 🎯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo va avanzando y todavía podés elegir.
-
-🎫 Disponibles:
-${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💰 Gs. ${precioFormato}
-💳 Alias: *${alias}*
-📩 Mandá comprobante y quedás adentro`,
-
-`📈 *YA PASAMOS LA PRIMERA PARTE* 📈
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* sigue sumando participantes.
-
-📊 Avance: *${porcentajeVendido}%*
-🎫 Libres: *${numerosLibres}*
-💰 Gs. ${precioFormato}
-💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-No te quedes mirando desde afuera 🔥`,
-
-`🟡 *BUEN MOMENTO PARA DECIDIR* 🟡
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-El sorteo ya se está moviendo, pero todavía hay oportunidad.
+Ya vamos *${numerosVendidos} de ${totalNumeros}* reservados.
 
 🎟️ *${raffle_name}*
-🎫 Disponibles:
-${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Elegí tu número y participá hoy 🙌`,
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+¡Avisá a quien falta — que no se quede nadie afuera! 📣`,
     ];
 
     const urgenciaNivel3 = [
-`🔥 *QUEDAN MENOS NÚMEROS* 🔥
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* ya pasó el *${porcentajeVendido}% vendido*.
+`🔥 *Últimos ${numerosLibres} números*
 
-🎫 Lo que queda:
+🎟️ *${raffle_name}*
+
+🎫 Disponibles:
 ${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Este es el momento de entrar sin pensarlo tanto 👀`,
 
-`⏳ *EL SORTEO SE ESTÁ CERRANDO* ⏳
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📩 Elegí y mandá comprobante.
+Se sortea apenas se complete ✅`,
+
+`⏳ *El sorteo se está cerrando*
+
 Ya hay *${numerosVendidos}* números tomados.
 Quedan *${numerosLibres}* disponibles.
 
 🎟️ *${raffle_name}*
+
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 No esperes a que queden solo los últimos 🙌`,
 
-`🎯 *CADA VEZ MÁS CERCA DEL CIERRE* 🎯
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}*
+`🏁 *Recta final*
 
-📊 Avance: *${porcentajeVendido}%*
+*${raffle_name}* va en *${porcentajeVendido}%* vendido.
+
 🎫 Disponibles:
 ${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Elegí, transferí y mandá comprobante ✅`,
 
-`🏁 *RECTA FINAL* 🏁
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ya estamos en *${porcentajeVendido}% vendido*.
-
-Si querés participar en *${raffle_name}*, este es el momento.
 💰 Gs. ${precioFormato}
 💳 Alias: *${alias}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Últimos números, sin vueltas 📲`,
 
-`⚠️ *CASI COMPLETO* ⚠️
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*${raffle_name}* está en cierre.
+Este es el momento de entrar sin pensarlo 📲`,
 
-🎫 Disponibles:
-${numerosLibres > 0 ? (numerosDisponiblesLista || 'Consultá por acá') : 'Ya no quedan números disponibles'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${numerosLibres > 0 ? `Transferí Gs. ${precioFormato} al alias *${alias}* y mandá comprobante ✅` : 'Gracias a todos los que participaron. Atentos al sorteo 🏆'}`,
+`⚠️ *Casi completo*
 
-`🚨 *SE CIERRA APENAS SE COMPLETE* 🚨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎟️ *${raffle_name}*
+
+🎫 ${numerosLibres > 0 ? `Disponibles:\n${numerosDisponiblesLista || 'Consultá por acá'}` : 'Cupo completo'}
+
+${numerosLibres > 0 ? `💰 Gs. ${precioFormato}\n💳 Alias: *${alias}*\n\nTransferí y mandá comprobante ✅` : 'Gracias a todos. Atentos al sorteo 🏆'}`,
+
+`🚨 *Se cierra apenas se complete*
+
 *${raffle_name}* está en la parte final.
 
 Quedan *${numerosLibres}* números.
 ${numerosLibres > 0 ? (numerosDisponiblesLista || '') : 'Cupo completo'}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${numerosLibres > 0 ? `Gs. ${precioFormato} — Alias: *${alias}*` : 'Ahora quedamos atentos al sorteo 🍀'}`,
 
-`🏆 *ATENTOS AL CIERRE* 🏆
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ya estamos muy cerca de completar *${raffle_name}*.
+${numerosLibres > 0 ? `💰 Gs. ${precioFormato} — Alias: *${alias}*` : '🍀 Quedamos atentos al sorteo'}`,
 
-📊 Avance: *${porcentajeVendido}%*
-🎫 Libres: *${numerosLibres}*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${numerosLibres > 0 ? 'Últimos lugares para participar 📲' : 'Números completos. Se viene el sorteo 🙌'}`,
+`🎯 *Cada vez más cerca del cierre*
+
+🎟️ *${raffle_name}*
+
+📊 *${porcentajeVendido}% vendido*
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}
+
+💰 Gs. ${precioFormato}
+💳 Alias: *${alias}*
+
+Elegí, transferí y mandá comprobante ✅`,
+
+`🏆 *Atentos al cierre*
+
+*${raffle_name}* está por completarse.
+
+📊 *${porcentajeVendido}%* — Libres: *${numerosLibres}*
+
+${numerosLibres > 0 ? `💰 Gs. ${precioFormato}\n💳 Alias: *${alias}*\n\nÚltimos lugares, no lo dejes pasar 📲` : 'Números completos. Se viene el sorteo 🙌'}`,
     ];
 
     if (numerosLibres === 0 || porcentajeVendido >= 90) {
