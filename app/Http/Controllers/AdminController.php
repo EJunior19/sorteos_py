@@ -470,78 +470,83 @@ class AdminController extends Controller
     {
         $prizeOrder = (int) $request->input('prize_order', 1);
 
-        $prize = $raffle->prizes->firstWhere('order', $prizeOrder);
+        return DB::transaction(function () use ($raffle, $soldNumbers, $prizeOrder) {
+            Raffle::whereKey($raffle->id)->lockForUpdate()->firstOrFail();
 
-        if (!$prize) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Premio no encontrado',
-            ], 404);
-        }
+            $prize = RafflePrize::where('raffle_id', $raffle->id)
+                ->where('order', $prizeOrder)
+                ->lockForUpdate()
+                ->first();
 
-        // Si este premio ya fue sorteado, devolver el resultado guardado
-        if ($prize->winner_number) {
+            if (!$prize) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Premio no encontrado',
+                ], 404);
+            }
+
+            // Si este premio ya fue sorteado, devolver el resultado guardado.
+            if ($prize->winner_number) {
+                return response()->json([
+                    'success'      => true,
+                    'already_drawn' => true,
+                    'prize_order'  => $prize->order,
+                    'prize_name'   => $prize->name,
+                    'prize_description' => $prize->description,
+                    'winner_number' => $prize->winner_number,
+                    'winner_name'  => $prize->winner_name,
+                ]);
+            }
+
+            $usedWinnerNumbers = RafflePrize::where('raffle_id', $raffle->id)
+                ->whereNotNull('winner_number')
+                ->pluck('winner_number')
+                ->map(fn($number) => (string) $number)
+                ->all();
+
+            $eligible = $soldNumbers->reject(
+                fn($num) => in_array((string) $num->number, $usedWinnerNumbers, true)
+            );
+
+            if ($eligible->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay números elegibles para este premio',
+                ], 422);
+            }
+
+            $winner = $eligible->random();
+
+            $prize->update([
+                'winner_number' => $winner->number,
+                'winner_name'   => $winner->customer_name ?? 'Participante',
+            ]);
+
+            Log::info("🏆 PREMIO #{$prize->order} ({$prize->name}): {$winner->number} - " . ($winner->customer_name ?? 'Participante'));
+
+            $prizes = RafflePrize::where('raffle_id', $raffle->id)->get();
+            $allDrawn = $prizes->every(fn($p) => !is_null($p->winner_number));
+
+            if ($allDrawn) {
+                $mainPrize = $prizes->sortByDesc('order')->first();
+                $raffle->update([
+                    'winner_number' => $mainPrize->winner_number,
+                    'winner_name'   => $mainPrize->winner_name,
+                    'status'        => 'finished',
+                ]);
+                Log::info("✅ TODOS LOS PREMIOS SORTEADOS — Sorteo finalizado");
+            }
+
             return response()->json([
-                'success'      => true,
-                'already_drawn' => true,
-                'prize_order'  => $prize->order,
-                'prize_name'   => $prize->name,
+                'success'          => true,
+                'prize_order'      => $prize->order,
+                'prize_name'       => $prize->name,
                 'prize_description' => $prize->description,
-                'winner_number' => $prize->winner_number,
-                'winner_name'  => $prize->winner_name,
+                'winner_number'    => $winner->number,
+                'winner_name'      => $winner->customer_name ?? 'Participante',
+                'all_drawn'        => $allDrawn,
+                'prizes_total'     => $prizes->count(),
             ]);
-        }
-
-        // Excluir participantes que ya ganaron 2 veces (máximo permitido)
-        $winsPerName = $raffle->prizes
-            ->whereNotNull('winner_name')
-            ->groupBy(fn($p) => strtolower(trim($p->winner_name)))
-            ->map(fn($group) => $group->count());
-
-        $eligible = $soldNumbers->filter(function ($num) use ($winsPerName) {
-            $name = strtolower(trim($num->customer_name ?? ''));
-            return $winsPerName->get($name, 0) < 2;
         });
-
-        if ($eligible->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No hay participantes elegibles para este premio',
-            ], 422);
-        }
-
-        $winner = $eligible->random();
-
-        $prize->update([
-            'winner_number' => $winner->number,
-            'winner_name'   => $winner->customer_name ?? 'Participante',
-        ]);
-
-        Log::info("🏆 PREMIO #{$prize->order} ({$prize->name}): {$winner->number} - " . ($winner->customer_name ?? 'Participante'));
-
-        // Si todos los premios ya tienen ganador → marcar sorteo como terminado
-        $raffle->load('prizes');
-        $allDrawn = $raffle->prizes->every(fn($p) => !is_null($p->winner_number));
-
-        if ($allDrawn) {
-            $mainPrize = $raffle->prizes->sortByDesc('order')->first();
-            $raffle->update([
-                'winner_number' => $mainPrize->winner_number,
-                'winner_name'   => $mainPrize->winner_name,
-                'status'        => 'finished',
-            ]);
-            Log::info("✅ TODOS LOS PREMIOS SORTEADOS — Sorteo finalizado");
-        }
-
-        return response()->json([
-            'success'          => true,
-            'prize_order'      => $prize->order,
-            'prize_name'       => $prize->name,
-            'prize_description' => $prize->description,
-            'winner_number'    => $winner->number,
-            'winner_name'      => $winner->customer_name ?? 'Participante',
-            'all_drawn'        => $allDrawn,
-            'prizes_total'     => $raffle->prizes->count(),
-        ]);
     }
 }
