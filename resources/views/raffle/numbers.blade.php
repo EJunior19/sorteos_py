@@ -62,6 +62,7 @@
 
 <script>
 let seleccionados = [];
+const MAX_NUMEROS = 10;
 const urgencyMessages = @json($urgencyMessages);
 let urgencyIndex = 0;
 
@@ -82,6 +83,10 @@ function toggleNumber(num, status) {
         seleccionados = seleccionados.filter(n => n !== num);
         el.classList.remove('ring-4', 'ring-yellow-300');
     } else {
+        if (seleccionados.length >= MAX_NUMEROS) {
+            alert('Podés reservar hasta ' + MAX_NUMEROS + ' números por vez');
+            return;
+        }
         seleccionados.push(num);
         el.classList.add('ring-4', 'ring-yellow-300');
     }
@@ -120,10 +125,15 @@ async function reservarNumeros() {
             })
         });
 
+        if (res.status === 429) {
+            alert('Demasiados intentos. Esperá un minuto y probá de nuevo.');
+            return;
+        }
+
         const data = await res.json();
 
         if (!res.ok || data.error) {
-            alert(data.error || 'Error al reservar');
+            alert(data.error || data.message || 'Error al reservar');
             return;
         }
 

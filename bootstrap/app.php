@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('reservas:liberar')->everyMinute();
+        $schedule->command('reservas:liberar')->everyMinute()->withoutOverlapping();
 
         $schedule->command('raffles:analyze-candidates')
             ->hourly();

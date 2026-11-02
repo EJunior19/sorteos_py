@@ -18,6 +18,17 @@
 
 @else
 
+    @if(session('success'))
+        <div class="bg-green-600/20 border border-green-500 text-green-300 text-sm rounded-xl p-3 mb-4 text-center">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="bg-red-600/20 border border-red-500 text-red-300 text-sm rounded-xl p-3 mb-4 text-center">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <!-- HEADER -->
     <div class="flex justify-between mb-4 items-center gap-2">
         <a href="/admin/create" class="bg-yellow-400 text-black px-3 py-2 rounded text-sm font-bold">
@@ -331,6 +342,14 @@
                             @csrf
                             <button type="submit" class="bg-blue-500 text-xs mt-1 px-2 py-1 rounded w-full text-white hover:bg-blue-600 transition">
                                 ✔ Confirmar
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.liberarReserva', $n->id) }}" style="display:inline;"
+                              data-number="{{ $n->number }}" data-name="{{ $n->customer_name ?? '-' }}"
+                              onsubmit="return confirm('¿Liberar el número ' + this.dataset.number + ' reservado por ' + this.dataset.name + '? Queda disponible para otra persona.');">
+                            @csrf
+                            <button type="submit" class="bg-gray-600 text-xs mt-1 px-2 py-1 rounded w-full text-white hover:bg-gray-700 transition">
+                                ✖ Liberar
                             </button>
                         </form>
                     @endif

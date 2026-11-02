@@ -30,7 +30,9 @@ Route::get('/sorteo/{id}/numeros', [RaffleController::class, 'numbers'])->name('
 Route::get('/sorteo/{id}', [RaffleController::class, 'show'])->name('raffle.show');
 
 // 🛒 RESERVAR NÚMEROS
-Route::post('/reservar', [ReservationController::class, 'reservar'])->name('reservar');
+Route::post('/reservar', [ReservationController::class, 'reservar'])
+    ->name('reservar')
+    ->middleware('throttle:10,1');
 
 
 /*
@@ -60,6 +62,9 @@ Route::middleware('admin.auth')->group(function () {
 
     // Confirmar pago (admin y colaborador)
     Route::post('/admin/confirmar/{id}', [AdminController::class, 'confirmarPago'])->name('admin.confirmarPago');
+
+    // Liberar reserva manualmente (admin y colaborador)
+    Route::post('/admin/liberar/{id}', [AdminController::class, 'liberarReserva'])->name('admin.liberarReserva');
 
     // Generar mensaje WhatsApp (admin y colaborador)
     Route::get('/admin/whatsapp/{id}', [AdminController::class, 'generarMensajeWhatsapp'])->name('admin.whatsapp');

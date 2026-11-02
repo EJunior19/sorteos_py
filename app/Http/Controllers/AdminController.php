@@ -183,17 +183,27 @@ class AdminController extends Controller
     // 💰 CONFIRMAR PAGO
     public function confirmarPago($id)
     {
-        $num = RaffleNumber::findOrFail($id);
+        // 🔒 Lock de la fila: evita confirmar un número que reservas:liberar
+        // está devolviendo a "free" en ese mismo momento.
+        $num = DB::transaction(function () use ($id) {
+            $num = RaffleNumber::lockForUpdate()->findOrFail($id);
 
-        if ($num->status !== 'reserved') {
+            if ($num->status !== 'reserved') {
+                return null;
+            }
+
+            $num->update([
+                'status'     => 'sold',
+                'paid'       => true,
+                'expires_at' => null,
+            ]);
+
+            return $num;
+        });
+
+        if (!$num) {
             return back()->with('error', 'Solo se pueden confirmar números reservados');
         }
-
-        $num->update([
-            'status'     => 'sold',
-            'paid'       => true,
-            'expires_at' => null,
-        ]);
 
         $raffle = $num->raffle;
         Cache::forget("dashboard_stats_{$raffle->id}");
@@ -210,6 +220,30 @@ class AdminController extends Controller
         }
 
         return back()->with('success', 'Pago confirmado');
+    }
+
+    // 🔓 LIBERAR RESERVA MANUALMENTE
+    public function liberarReserva($id)
+    {
+        $liberado = DB::transaction(function () use ($id) {
+            $num = RaffleNumber::with('raffle')->lockForUpdate()->findOrFail($id);
+
+            if ($num->status !== 'reserved' || $num->paid || $num->raffle->status !== 'active') {
+                return null;
+            }
+
+            $num->liberar('manual');
+
+            return $num;
+        });
+
+        if (!$liberado) {
+            return back()->with('error', 'Solo se pueden liberar números reservados (sin pagar) de un sorteo activo');
+        }
+
+        Cache::forget("dashboard_stats_{$liberado->raffle_id}");
+
+        return back()->with('success', "Número {$liberado->number} liberado");
     }
 
     // 🎰 VISTA SORTEO
