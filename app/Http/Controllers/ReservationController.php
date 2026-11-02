@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Raffle;
 use App\Models\RaffleNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,8 @@ class ReservationController extends Controller
 
             DB::beginTransaction();
 
+            $raffle = Raffle::findOrFail($request->raffle_id);
+            $isFreeRaffle = (int) $raffle->price === 0;
             $numbers = array_unique($request->numbers);
 
             $reservados = [];
@@ -47,11 +50,11 @@ class ReservationController extends Controller
                 }
 
                 $n->update([
-                    'status'        => 'reserved',
+                    'status'        => $isFreeRaffle ? 'sold' : 'reserved',
                     'customer_name' => $request->name,
                     'reserved_at'   => now(),
                     'expires_at'    => null,
-                    'paid'          => false
+                    'paid'          => $isFreeRaffle
                 ]);
 
                 $reservados[] = $num;

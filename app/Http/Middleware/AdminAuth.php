@@ -9,7 +9,7 @@ class AdminAuth
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!in_array(session('role'), ['admin', 'colaborador'])) {
+        if (session('role') !== 'admin') {
             return redirect('/admin/login');
         }
 

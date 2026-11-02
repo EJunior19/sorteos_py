@@ -18,6 +18,15 @@
     $prizes        = $raffle->prizes->sortBy('order')->values();
     $isMultiPrize  = $prizes->isNotEmpty();
 
+    // Solo los campos que necesita el JS — sin datos internos de ponderación
+    $prizesForJs = $prizes->map(fn($p) => [
+        'order'         => $p->order,
+        'name'          => $p->name,
+        'description'   => $p->description,
+        'winner_number' => $p->winner_number,
+        'winner_name'   => $p->winner_name,
+    ])->values();
+
     // Promo
     $promoEnabled   = (bool) ($raffle->promo_enabled ?? false);
     $promoResults   = $raffle->promoResults ?? collect();
@@ -116,8 +125,8 @@
     @endif
 
     @if($promoEnabled)
-    <!-- SECCIÓN PROMO — oculta hasta que termina el sorteo principal -->
-    <div id="promoSection" class="{{ $allPrizesDrawn ? '' : 'hidden' }} mt-6 max-w-2xl mx-auto">
+    <!-- SECCIÓN PROMO — oculta hasta que termina el sorteo principal (most_numbers: siempre visible) -->
+    <div id="promoSection" class="{{ ($allPrizesDrawn || $raffle->promo_type === 'most_numbers') ? '' : 'hidden' }} mt-6 max-w-2xl mx-auto">
 
         @if($promoResults->isEmpty())
         {{-- Promo pendiente --}}
@@ -131,11 +140,16 @@
                     🏆 Primeros {{ $raffle->promo_limit }} en reservar &middot; {{ $raffle->promo_winner_count }} ganador(es)
                 @endif
             </div>
+            @if($raffle->promo_type === 'most_numbers')
+            {{-- most_numbers: se carga automáticamente, sin botón --}}
+            <div id="promoLoading" class="text-yellow-300 text-sm">⏳ Calculando ganador...</div>
+            @else
             <button id="promoBtn"
                 onclick="runPromo()"
                 class="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-3 rounded-xl font-bold transition">
                 🏆 Revelar ganador de la promo
             </button>
+            @endif
         </div>
 
         @else
@@ -207,15 +221,17 @@
 
 <script>
 // ── Datos desde PHP ──────────────────────────────────────────────────────────
-const baseItems            = @json($items);
-const raffleId             = @json($raffle->id);
-const csrfToken            = @json(csrf_token());
-const existingWinnerNumber = @json($raffle->winner_number);
-const isMultiPrize         = @json($isMultiPrize);
-const promoEnabled         = @json($promoEnabled);
+const baseItems             = @json($items);
+const raffleId              = @json($raffle->id);
+const csrfToken             = @json(csrf_token());
+const existingWinnerNumber  = @json($raffle->winner_number);
+const isMultiPrize          = @json($isMultiPrize);
+const promoEnabled          = @json($promoEnabled);
+const promoType             = @json($raffle->promo_type);
+const promoResultsEmpty     = @json($promoResults->isEmpty());
 
 // Premios en orden de sorteo: index 0 = último premio (order=1), último index = 1er premio
-let prizes = @json($prizes->values());
+let prizes = @json($prizesForJs);
 
 // ── Estado ───────────────────────────────────────────────────────────────────
 let isRunning         = false;
@@ -499,12 +515,17 @@ function showFinalSummary() {
 function showPromoSection() {
     const section = document.getElementById('promoSection');
     if (section) section.classList.remove('hidden');
+    if (promoType === 'most_numbers') runPromo();
 }
 
 async function runPromo() {
-    const promoBtn = document.getElementById('promoBtn');
-    promoBtn.disabled    = true;
-    promoBtn.textContent = '⏳ Sorteando...';
+    const promoBtn    = document.getElementById('promoBtn');
+    const promoLoading = document.getElementById('promoLoading');
+
+    if (promoBtn) {
+        promoBtn.disabled    = true;
+        promoBtn.textContent = '⏳ Sorteando...';
+    }
 
     let response;
     try {
@@ -518,18 +539,22 @@ async function runPromo() {
             body: new URLSearchParams({ _token: csrfToken }).toString(),
         });
     } catch (e) {
-        alert('No se pudo conectar con el servidor.');
-        promoBtn.disabled    = false;
-        promoBtn.textContent = '🎁 Sortear Promo';
+        if (promoBtn) {
+            promoBtn.disabled    = false;
+            promoBtn.textContent = '🎁 Sortear Promo';
+        }
+        if (promoLoading) promoLoading.textContent = '⚠️ No se pudo conectar con el servidor.';
         return;
     }
 
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-        alert(data.message ?? 'Error al ejecutar la promo.');
-        promoBtn.disabled    = false;
-        promoBtn.textContent = '🎁 Sortear Promo';
+        if (promoBtn) {
+            promoBtn.disabled    = false;
+            promoBtn.textContent = '🎁 Sortear Promo';
+        }
+        if (promoLoading) promoLoading.textContent = '⚠️ ' + (data.message ?? 'Error al obtener el resultado.');
         return;
     }
 
@@ -791,6 +816,11 @@ if (isMultiPrize) {
             spinBtn.onclick = () => { window.location.href = '/admin'; };
         }
     }
+}
+
+// Auto-ejecutar promo most_numbers al cargar si los resultados no están guardados aún
+if (promoEnabled && promoType === 'most_numbers' && promoResultsEmpty) {
+    runPromo();
 }
 </script>
 

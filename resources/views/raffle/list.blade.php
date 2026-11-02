@@ -60,7 +60,11 @@
                     </h2>
 
                     <p class="text-yellow-200 font-semibold mt-1">
-                        💰 Gs. {{ number_format($r->price, 0, ',', '.') }}
+                        @if((int) $r->price === 0)
+                            🆓 Gratis
+                        @else
+                            💰 Gs. {{ number_format($r->price, 0, ',', '.') }}
+                        @endif
                     </p>
 
                     <p class="text-sm text-gray-400">
@@ -73,9 +77,9 @@
                         <p class="text-white text-xs font-semibold">{{ $r->promo_prize_text }}</p>
                         <p class="text-gray-400 text-[11px]">
                             @if($r->promo_type === 'most_numbers')
-                                🏆 Gana quien compre más números · ¡Cuantos más, más chances!
+                                🏆 Gana quien {{ (int) $r->price === 0 ? 'reserve' : 'compre' }} más números · ¡Cuantos más, más chances!
                             @else
-                                🏆 Primeros {{ $r->promo_limit }} en reservar participan.
+                                🏆 Primeros {{ $r->promo_limit }} en reservar{{ (int) $r->price === 0 ? '' : ' y confirmar pago' }} participan.
                             @endif
                         </p>
                     </div>

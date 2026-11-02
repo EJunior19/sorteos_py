@@ -9,6 +9,7 @@ use App\Models\RafflePromoResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class AdminController extends Controller
@@ -70,7 +71,7 @@ class AdminController extends Controller
 
         $request->validate([
             'name'               => 'required|string|max:255',
-            'price'              => 'required',
+            'price'              => ['required', 'string', 'regex:/^[0-9][0-9.]*$/'],
             'total_numbers'      => 'required|integer|min:1',
             'image'              => 'required|image|max:5120',
             'prizes_count'       => 'required|integer|min:1|max:20',
@@ -84,9 +85,18 @@ class AdminController extends Controller
             'promo_limit'        => 'nullable|integer|min:1',
             'promo_winner_count' => 'nullable|integer|min:1',
             'promo_prize_text'   => 'nullable|string|max:255',
+            'weighted_draw_enabled' => 'nullable|boolean',
+            'win_weights'        => 'nullable|array',
+            'win_weights.0'      => 'nullable|numeric|min:0|max:1',
+            'win_weights.1'      => 'nullable|numeric|min:0|max:1',
+            'win_weights.2'      => 'nullable|numeric|min:0|max:1',
+            'win_weights.3'      => 'nullable|numeric|min:0|max:1',
+        ], [
+            'price.required' => 'Indicá el precio del número. Para sorteos gratis usá 0.',
+            'price.regex'    => 'El precio debe ser un monto válido en guaraníes. Para sorteos gratis usá 0.',
         ]);
 
-        $price = str_replace('.', '', $request->price);
+        $price = (int) str_replace('.', '', $request->price);
 
         $recentDuplicate = Raffle::where('name', $request->name)
             ->where('created_at', '>=', now()->subSeconds(30))
@@ -107,22 +117,36 @@ class AdminController extends Controller
         }
 
         DB::transaction(function () use ($request, $price, $imagePath) {
-            $promoEnabled = $request->boolean('promo_enabled');
+            $promoEnabled   = $request->boolean('promo_enabled');
+            $weightedEnabled = $request->boolean('weighted_draw_enabled');
+
+            $winWeights = null;
+            if ($weightedEnabled) {
+                $raw = $request->input('win_weights', []);
+                $winWeights = [
+                    '0' => isset($raw[0]) ? (float)$raw[0] : 1.0,
+                    '1' => isset($raw[1]) ? (float)$raw[1] : 0.5,
+                    '2' => isset($raw[2]) ? (float)$raw[2] : 0.25,
+                    '3' => isset($raw[3]) ? (float)$raw[3] : 0.0,
+                ];
+            }
 
             $raffle = Raffle::create([
-                'name'               => $request->name,
-                'price'              => $price,
-                'total_numbers'      => $request->total_numbers,
-                'image'              => $imagePath,
-                'status'             => 'active',
-                'prizes_count'       => $request->prizes_count,
-                'titular_name'       => $request->titular_name ?? 'Junior Enciso',
-                'alias'              => $request->alias ?? '7130138',
-                'promo_enabled'      => $promoEnabled,
-                'promo_type'         => $promoEnabled ? ($request->promo_type ?? 'early_numbers') : null,
-                'promo_limit'        => $promoEnabled ? $request->promo_limit : null,
-                'promo_winner_count' => $promoEnabled ? ($request->promo_winner_count ?? 1) : 0,
-                'promo_prize_text'   => $promoEnabled ? $request->promo_prize_text : null,
+                'name'                  => $request->name,
+                'price'                 => $price,
+                'total_numbers'         => $request->total_numbers,
+                'image'                 => $imagePath,
+                'status'                => 'active',
+                'prizes_count'          => $request->prizes_count,
+                'titular_name'          => $request->titular_name ?? 'Junior Enciso',
+                'alias'                 => $request->alias ?? '7130138',
+                'promo_enabled'         => $promoEnabled,
+                'promo_type'            => $promoEnabled ? ($request->promo_type ?? 'early_numbers') : null,
+                'promo_limit'           => $promoEnabled ? $request->promo_limit : null,
+                'promo_winner_count'    => $promoEnabled ? ($request->promo_winner_count ?? 1) : 0,
+                'promo_prize_text'      => $promoEnabled ? $request->promo_prize_text : null,
+                'weighted_draw_enabled' => $weightedEnabled,
+                'win_weights'           => $winWeights,
             ]);
 
             Log::info("🎯 SORTEO CREADO ID: " . $raffle->id);
@@ -394,21 +418,24 @@ class AdminController extends Controller
             ], 422);
         }
 
-        // El sorteo principal debe estar completo antes de ejecutar la promo
-        if ($raffle->prizes->isNotEmpty()) {
-            $allDrawn = $raffle->prizes->every(fn($p) => !is_null($p->winner_number));
-            if (!$allDrawn) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El sorteo principal no terminó. Completá todos los premios primero.',
-                ], 422);
-            }
-        } else {
-            if (!$raffle->winner_number) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El sorteo principal no terminó. Ejecutá el sorteo primero.',
-                ], 422);
+        // Para most_numbers el resultado es determinístico, no requiere que el sorteo principal esté completo.
+        // Para early_numbers sí se requiere que el sorteo principal haya terminado.
+        if ($raffle->promo_type !== 'most_numbers') {
+            if ($raffle->prizes->isNotEmpty()) {
+                $allDrawn = $raffle->prizes->every(fn($p) => !is_null($p->winner_number));
+                if (!$allDrawn) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El sorteo principal no terminó. Completá todos los premios primero.',
+                    ], 422);
+                }
+            } else {
+                if (!$raffle->winner_number) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El sorteo principal no terminó. Ejecutá el sorteo primero.',
+                    ], 422);
+                }
             }
         }
 
@@ -488,25 +515,42 @@ class AdminController extends Controller
             // Si este premio ya fue sorteado, devolver el resultado guardado.
             if ($prize->winner_number) {
                 return response()->json([
-                    'success'      => true,
-                    'already_drawn' => true,
-                    'prize_order'  => $prize->order,
-                    'prize_name'   => $prize->name,
+                    'success'           => true,
+                    'already_drawn'     => true,
+                    'prize_order'       => $prize->order,
+                    'prize_name'        => $prize->name,
                     'prize_description' => $prize->description,
-                    'winner_number' => $prize->winner_number,
-                    'winner_name'  => $prize->winner_name,
+                    'winner_number'     => $prize->winner_number,
+                    'winner_name'       => $prize->winner_name,
                 ]);
             }
 
-            $usedWinnerNumbers = RafflePrize::where('raffle_id', $raffle->id)
+            $wonPrizes = RafflePrize::where('raffle_id', $raffle->id)
                 ->whereNotNull('winner_number')
+                ->get(['winner_number', 'winner_name']);
+
+            $usedWinnerNumbers = $wonPrizes
                 ->pluck('winner_number')
                 ->map(fn($number) => (string) $number)
                 ->all();
 
-            $eligible = $soldNumbers->reject(
-                fn($num) => in_array((string) $num->number, $usedWinnerNumbers, true)
-            );
+            // Contar premios ganados por cada cliente
+            $winsPerCustomer = [];
+            foreach ($wonPrizes as $won) {
+                $entry = $soldNumbers->firstWhere('number', $won->winner_number);
+                $name  = $entry ? ($entry->customer_name ?? 'Participante') : ($won->winner_name ?? 'Participante');
+                $winsPerCustomer[$name] = ($winsPerCustomer[$name] ?? 0) + 1;
+            }
+
+            $eligible = $soldNumbers->reject(function ($num) use ($usedWinnerNumbers, $winsPerCustomer) {
+                // Excluir números ya ganadores
+                if (in_array((string) $num->number, $usedWinnerNumbers, true)) {
+                    return true;
+                }
+                // Excluir números de clientes que ya alcanzaron el máximo de 2 premios
+                $name = $num->customer_name ?? 'Participante';
+                return ($winsPerCustomer[$name] ?? 0) >= 2;
+            });
 
             if ($eligible->isEmpty()) {
                 return response()->json([
@@ -515,38 +559,146 @@ class AdminController extends Controller
                 ], 422);
             }
 
-            $winner = $eligible->random();
+            [$winner, $appliedWeight] = $this->selectWinner($eligible, $raffle, $soldNumbers);
+
+            if (!$winner) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Todos los participantes elegibles alcanzaron el límite de premios para este sorteo.',
+                ], 422);
+            }
 
             $prize->update([
-                'winner_number' => $winner->number,
-                'winner_name'   => $winner->customer_name ?? 'Participante',
+                'winner_number'  => $winner->number,
+                'winner_name'    => $winner->customer_name ?? 'Participante',
+                'weight_applied' => $appliedWeight,
             ]);
 
-            Log::info("🏆 PREMIO #{$prize->order} ({$prize->name}): {$winner->number} - " . ($winner->customer_name ?? 'Participante'));
+            $weightInfo = $raffle->weighted_draw_enabled
+                ? " [peso={$appliedWeight}]"
+                : '';
+            Log::info("🏆 PREMIO #{$prize->order} ({$prize->name}): {$winner->number} - " . ($winner->customer_name ?? 'Participante') . $weightInfo);
 
-            $prizes = RafflePrize::where('raffle_id', $raffle->id)->get();
+            $prizes   = RafflePrize::where('raffle_id', $raffle->id)->get();
             $allDrawn = $prizes->every(fn($p) => !is_null($p->winner_number));
 
             if ($allDrawn) {
-                $mainPrize = $prizes->sortByDesc('order')->first();
+                $mainPrize    = $prizes->sortByDesc('order')->first();
+                $totalRevenue = $soldNumbers->count() * (int) $raffle->price;
+                $totalCost    = $prizes->sum(fn($p) => (int) $p->cost);
+                $realProfit   = $totalRevenue - $totalCost;
+
                 $raffle->update([
-                    'winner_number' => $mainPrize->winner_number,
-                    'winner_name'   => $mainPrize->winner_name,
-                    'status'        => 'finished',
+                    'winner_number'  => $mainPrize->winner_number,
+                    'winner_name'    => $mainPrize->winner_name,
+                    'status'         => 'finished',
+                    'real_profit_gs' => $realProfit,
                 ]);
-                Log::info("✅ TODOS LOS PREMIOS SORTEADOS — Sorteo finalizado");
+                Log::info("✅ TODOS LOS PREMIOS SORTEADOS — Sorteo #{$raffle->id} finalizado. Recaudado: ₲{$totalRevenue} | Costos: ₲{$totalCost} | Ganancia: ₲{$realProfit}");
+
+                $this->notifyErpTreasury($raffle->id, $raffle->name, $realProfit);
             }
 
             return response()->json([
-                'success'          => true,
-                'prize_order'      => $prize->order,
-                'prize_name'       => $prize->name,
+                'success'           => true,
+                'prize_order'       => $prize->order,
+                'prize_name'        => $prize->name,
                 'prize_description' => $prize->description,
-                'winner_number'    => $winner->number,
-                'winner_name'      => $winner->customer_name ?? 'Participante',
-                'all_drawn'        => $allDrawn,
-                'prizes_total'     => $prizes->count(),
+                'winner_number'     => $winner->number,
+                'winner_name'       => $winner->customer_name ?? 'Participante',
+                'all_drawn'         => $allDrawn,
+                'prizes_total'      => $prizes->count(),
             ]);
         });
+    }
+
+    // ⚖️ Selección aleatoria ponderada según victorias previas del participante
+    private function selectWinner($eligible, Raffle $raffle, $soldNumbers): array
+    {
+        if (!$raffle->weighted_draw_enabled) {
+            return [$eligible->random(), 1.0];
+        }
+
+        // Mapear números ganadores anteriores → nombre del participante → cantidad de victorias
+        $priorWinNumbers = RafflePrize::where('raffle_id', $raffle->id)
+            ->whereNotNull('winner_number')
+            ->pluck('winner_number')
+            ->map(fn($n) => (string) $n)
+            ->all();
+
+        $winsPerCustomer = [];
+        foreach ($priorWinNumbers as $winNum) {
+            $entry = $soldNumbers->firstWhere('number', $winNum);
+            $name  = $entry ? ($entry->customer_name ?? 'Participante') : 'Participante';
+            $winsPerCustomer[$name] = ($winsPerCustomer[$name] ?? 0) + 1;
+        }
+
+        $weights = $raffle->win_weights ?? ['0' => 1.0, '1' => 0.5, '2' => 0.25, '3' => 0.0];
+        $maxWins = count($weights) - 1;
+
+        // Construir pool con pesos
+        $pool        = [];
+        $totalWeight = 0.0;
+
+        foreach ($eligible as $num) {
+            $name   = $num->customer_name ?? 'Participante';
+            $wins   = $winsPerCustomer[$name] ?? 0;
+            $key    = (string) min($wins, $maxWins);
+            $weight = (float) ($weights[$key] ?? 0.0);
+
+            if ($weight > 0.0) {
+                $pool[]      = ['num' => $num, 'weight' => $weight];
+                $totalWeight += $weight;
+            }
+        }
+
+        if (empty($pool)) {
+            return [null, 0.0];
+        }
+
+        // Selección aleatoria ponderada
+        $rand       = (mt_rand() / mt_getrandmax()) * $totalWeight;
+        $cumulative = 0.0;
+
+        foreach ($pool as $entry) {
+            $cumulative += $entry['weight'];
+            if ($rand <= $cumulative) {
+                return [$entry['num'], $entry['weight']];
+            }
+        }
+
+        // Fallback por precisión de punto flotante
+        $last = end($pool);
+        return [$last['num'], $last['weight']];
+    }
+
+    // 🏦 Notificar al ERP para registrar la ganancia/pérdida en la caja SorteosPY
+    private function notifyErpTreasury(int $raffleId, string $raffleName, int $profit): void
+    {
+        $erpUrl = rtrim(env('ERP_TREASURY_URL', 'https://erp.katuetegroup.com'), '/');
+        $token  = env('HOLDING_API_TOKEN', '');
+
+        if (!$erpUrl || !$token) {
+            Log::warning("Treasury webhook: ERP_TREASURY_URL o HOLDING_API_TOKEN no configurados.");
+            return;
+        }
+
+        try {
+            $response = Http::timeout(8)->post("{$erpUrl}/api/treasury/sorteos-income", [
+                'raffle_id'   => $raffleId,
+                'raffle_name' => $raffleName,
+                'amount'      => $profit,
+                'token'       => $token,
+            ]);
+
+            if ($response->successful()) {
+                Log::info("Treasury webhook OK: Sorteo #{$raffleId} → ERP. Respuesta: " . $response->body());
+            } else {
+                Log::error("Treasury webhook falló (HTTP {$response->status()}): " . $response->body());
+            }
+        } catch (\Throwable $e) {
+            // No bloquear el sorteo por falla de webhook
+            Log::error("Treasury webhook excepción: " . $e->getMessage());
+        }
     }
 }

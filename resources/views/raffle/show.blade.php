@@ -259,7 +259,11 @@
         </div>
 
         <p class="text-yellow-200 font-semibold text-lg mb-4">
-            💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }} por número
+            @if((int) $raffle->price === 0)
+                🆓 Gratis
+            @else
+                💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }} por número
+            @endif
         </p>
 
         {{-- ESTADÍSTICAS --}}
@@ -333,18 +337,28 @@
 function reservarWhatsApp() {
     const nombre = {!! json_encode($raffle->name) !!};
     const precio = {!! json_encode(number_format($raffle->price, 0, ',', '.')) !!};
+    const esGratis = {{ (int) $raffle->price === 0 ? 'true' : 'false' }};
+    const precioTexto = esGratis ? "Gratis" : "Gs. " + precio + " por número";
     @if($raffle->promo_enabled && $raffle->promo_prize_text)
         @if($raffle->promo_type === 'most_numbers')
+            @if((int) $raffle->price === 0)
+    const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Gana esta promo la persona que reserve la mayor cantidad de números del sorteo.\n\n🔥 Cuantos más números reservás, más cerca estás de llevarte el premio principal y la promo especial.";
+            @else
     const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Gana esta promo la persona que compre la mayor cantidad de números del sorteo.\n\n🔥 Cuantos más números reservás, más cerca estás de llevarte el premio principal y la promo especial.";
+            @endif
         @else
+            @if((int) $raffle->price === 0)
+    const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Los primeros en reservar participan por esta promo especial.";
+            @else
     const promoLinea = "\n\n🎁 *Promo especial incluida*\nTambién participás por un premio extra:\n{{ $raffle->promo_prize_text }}\n\n🏆 Los primeros en reservar y confirmar pago participan por esta promo especial.";
+            @endif
         @endif
     @else
     const promoLinea = "";
     @endif
 
     const msg = "Hola! Quiero reservar un número para el sorteo *" + nombre +
-                "* (Gs. " + precio + " por número)." + promoLinea + "\n\n¿Cuáles están disponibles?";
+                "* (" + precioTexto + ")." + promoLinea + "\n\n¿Cuáles están disponibles?";
 
     const url = "https://wa.me/595986770148?text=" + encodeURIComponent(msg);
 

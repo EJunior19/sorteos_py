@@ -14,6 +14,7 @@ class RafflePrize extends Model
         'winner_number',
         'winner_name',
         'cost',
+        'weight_applied',
     ];
 
     public function raffle()

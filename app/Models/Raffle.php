@@ -33,14 +33,18 @@ class Raffle extends Model
         'discount_active',
         'discount_pct',
         'urgency_messages',
+        'weighted_draw_enabled',
+        'win_weights',
     ];
 
     protected $casts = [
-        'promo_enabled'   => 'boolean',
-        'discount_active' => 'boolean',
-        'urgency_messages' => 'array',
-        'sale_started_at' => 'datetime',
-        'sold_out_at'     => 'datetime',
+        'promo_enabled'         => 'boolean',
+        'discount_active'       => 'boolean',
+        'weighted_draw_enabled' => 'boolean',
+        'urgency_messages'      => 'array',
+        'win_weights'           => 'array',
+        'sale_started_at'       => 'datetime',
+        'sold_out_at'           => 'datetime',
     ];
 
     public function numbers()

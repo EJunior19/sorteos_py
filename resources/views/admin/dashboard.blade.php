@@ -49,13 +49,17 @@
                         <span class="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">ACTIVA</span>
                     @endif
                 </p>
-                @if($raffle->discount_active)
+                @if((int) $raffle->price === 0)
+                    <p class="text-gray-500 text-xs mt-0.5">No aplica a sorteos gratis</p>
+                @elseif($raffle->discount_active)
                     <p class="text-orange-400 text-xs mt-0.5">{{ $raffle->discount_pct }}% OFF — Precio promo: Gs. {{ number_format($raffle->price * (1 - $raffle->discount_pct/100), 0, ',', '.') }}</p>
                 @else
                     <p class="text-gray-500 text-xs mt-0.5">Sin promo activa</p>
                 @endif
             </div>
-            @if($raffle->discount_active)
+            @if((int) $raffle->price === 0)
+                <span class="text-gray-500 text-xs font-bold px-3 py-2">Gratis</span>
+            @elseif($raffle->discount_active)
                 <button onclick="desactivarPromo({{ $raffle->id }})" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold px-3 py-2 rounded-lg">
                     Desactivar
                 </button>
@@ -86,7 +90,11 @@
     <div class="bg-[#1A1A1A] p-4 rounded-xl mb-4 text-center shadow-lg">
         <h2 class="text-yellow-400 font-bold text-lg">{{ $raffle->name }}</h2>
         <p class="text-yellow-300 text-sm">
-            💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }}
+            @if((int) $raffle->price === 0)
+                🆓 Gratis
+            @else
+                💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }}
+            @endif
         </p>
         @if($raffle->prizes && $raffle->prizes->count() > 0)
             <p class="text-gray-400 text-xs mt-1">

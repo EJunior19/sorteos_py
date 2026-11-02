@@ -14,6 +14,7 @@ window.generarMensajes = function generarMensajes(data) {
     } = data;
 
     const fmt = v => new Intl.NumberFormat('es-PY', { useGrouping: true, minimumFractionDigits: 0 }).format(v).replace(/\s/g, '.');
+    const esGratis = Number(price) <= 0;
     const precioFormato  = fmt(price);
     const precioPromo    = discount_active ? fmt(Math.round(price * (1 - discount_pct / 100))) : null;
     const ahorro         = discount_active ? fmt(price - Math.round(price * (1 - discount_pct / 100))) : null;
@@ -42,14 +43,14 @@ window.generarMensajes = function generarMensajes(data) {
 `\n🎁 *Promo especial incluida*
 También participás por un premio extra:
 ${promo_prize_text}
-🏆 Gana esta promo la persona que compre la mayor cantidad de números del sorteo.
+🏆 Gana esta promo la persona que ${esGratis ? 'reserve' : 'compre'} la mayor cantidad de números del sorteo.
 🔥 Cuantos más números reservás, más cerca estás de llevarte el premio principal y la promo especial.\n`;
         } else {
             listaPremios +=
 `\n🎁 *Promo especial incluida*
 También participás por un premio extra:
 ${promo_prize_text}
-🏆 Los primeros en reservar y confirmar pago participan por esta promo especial.\n`;
+🏆 Los primeros en reservar${esGratis ? '' : ' y confirmar pago'} participan por esta promo especial.\n`;
         }
     }
 
@@ -708,6 +709,111 @@ ${numerosLibres > 0 ? `💰 Gs. ${precioFormato}\n💳 Alias: *${alias}*\n\nÚlt
         return `${message}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${bloqueNumerosDisponibles}`;
     });
 
+    if (esGratis) {
+        return {
+            mensaje_completo: [
+`🎰✨ *SORTEO GRATIS EN CURSO* ✨🎰
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎟️ *${raffle_name}*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${listaPremios}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆓 *Participación gratis*
+📊 *Estado:* ${porcentajeVendido}% ocupado (${numerosVendidos}/${totalNumeros})
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎫 *LISTA DE NÚMEROS:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${listaNumeros}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 *¿QUERÉS PARTICIPAR?*
+👉 Elegí tu número
+📩 Mandanos tu nombre
+✅ Quedás participando sin pagar
+🍀 *¡Buena suerte a todos!*`,
+            ],
+            urgencia: [
+`🔥 *SORTEO GRATIS ACTIVO* 🔥
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${raffle_name}*
+
+Quedan *${numerosLibres}* números disponibles.
+🆓 Participás sin pagar.
+
+🎫 Disponibles:
+${numerosDisponiblesLista || 'Consultá por acá'}
+
+Mandá tu número y nombre para entrar 📲`,
+            ],
+            promocion: [
+`🎁 *PROMO ESPECIAL GRATIS* 🎁
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${raffle_name}*
+
+${listaPremios}
+🆓 Sin costo de participación.
+
+Elegí tu número y ya quedás participando ✅`,
+            ],
+            invitacion: [
+`🎉 *INVITACIÓN ABIERTA* 🎉
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tenemos sorteo gratis:
+*${raffle_name}*
+
+🆓 Participás sin pagar
+🎫 Elegí un número disponible
+📩 Mandanos tu nombre
+
+${numerosDisponiblesLista || 'Consultá números disponibles por acá'}`,
+            ],
+            flash: [
+`⚡ *SORTEO GRATIS - CUPOS LIMITADOS* ⚡
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${raffle_name}*
+
+Quedan *${numerosLibres}* lugares.
+Elegí tu número y participá sin pagar 📲`,
+            ],
+            ultima_oportunidad: [
+`🚨 *ÚLTIMOS NÚMEROS GRATIS* 🚨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${raffle_name}*
+
+Disponibles:
+${numerosDisponiblesLista || 'Consultá por acá'}
+
+🆓 Sin transferencia ni comprobante.
+Mandá tu nombre y número ✅`,
+            ],
+            anuncio_ganadores: [
+`🎊 *RESULTADO PUBLICADO* 🎊
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎟️ *${raffle_name}*
+
+${listaGanadores}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Felicitaciones a los ganadores y gracias a todos por participar 🙌`,
+            ],
+            agradecimiento: [
+`🙏 *GRACIAS POR PARTICIPAR* 🙏
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*${raffle_name}*
+
+Gracias a cada persona que participó y compartió.
+Seguimos preparando más sorteos y premios para el grupo 🙌`,
+            ],
+            compartir_grupo: [
+`🔗 *COMPARTÍ EL GRUPO* 🔗
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Entrá y enterate de sorteos gratis, premios y resultados:
+
+https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
+
+Invitá a quien quiera participar 🙌`,
+            ],
+        };
+    }
+
     const mensajesGenerados = {
         mensaje_completo: [
 `🎰✨ *¡SORTEO EN CURSO!* ✨🎰
@@ -1081,7 +1187,7 @@ Fue un gusto tenerlos en este sorteo 🙏
 ¡Unite al grupo y enterate de todo! 👇
 
 📲 *GRUPO OFICIAL:*
-https://chat.whatsapp.com/JTTNQCrB8cjDKMukLUTY9G?mode=gi_t
+https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Sorteos en vivo
@@ -1098,7 +1204,7 @@ Ahí avisamos sorteos, resultados y novedades.
 
 🎟️ Sorteo actual: *${raffle_name}*
 
-👉 https://chat.whatsapp.com/JTTNQCrB8cjDKMukLUTY9G?mode=gi_t
+👉 https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
 
 ✅ Avisos rápidos
 ✅ Resultados al instante
@@ -1111,7 +1217,7 @@ Compartí el enlace con quien quiera participar 🍀`,
 Querés enterarte primero de los sorteos?
 Unite al grupo oficial 👇
 
-https://chat.whatsapp.com/JTTNQCrB8cjDKMukLUTY9G?mode=gi_t
+https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
 
 🎰 Sorteos activos
 🏆 Ganadores publicados
@@ -1265,7 +1371,7 @@ Nos vemos en el próximo sorteo 🍀`,
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Entrá y enterate de sorteos, premios y resultados:
 
-https://chat.whatsapp.com/JTTNQCrB8cjDKMukLUTY9G?mode=gi_t
+https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
 
 Invitá a quien quiera participar 🙌`,
 
@@ -1273,7 +1379,7 @@ Invitá a quien quiera participar 🙌`,
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Unite para ver novedades, resultados y próximos premios:
 
-https://chat.whatsapp.com/JTTNQCrB8cjDKMukLUTY9G?mode=gi_t
+https://chat.whatsapp.com/HnvN3bMaUfe2QjuCPz6XwB
 
 Te esperamos en el grupo 🍀`,
         ],

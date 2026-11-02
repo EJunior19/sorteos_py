@@ -19,7 +19,11 @@
         </h1>
 
         <p class="text-yellow-300 text-xl font-semibold mt-1">
-            💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }}
+            @if((int) $raffle->price === 0)
+                🆓 Gratis
+            @else
+                💰 Gs. {{ number_format($raffle->price, 0, ',', '.') }}
+            @endif
         </p>
     </div>
 

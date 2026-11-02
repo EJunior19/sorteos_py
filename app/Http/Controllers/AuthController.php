@@ -25,11 +25,6 @@ class AuthController extends Controller
             return redirect('/admin');
         }
 
-        if (env('COLLAB_PASSWORD_HASH') && Hash::check($request->password, env('COLLAB_PASSWORD_HASH'))) {
-            session(['role' => 'colaborador']);
-            return redirect('/admin');
-        }
-
         return back()->with('error', 'Contraseña incorrecta');
     }
 

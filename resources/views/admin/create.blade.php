@@ -31,15 +31,30 @@
         >
 
         <!-- PRECIO -->
-        <input
-            id="price"
-            name="price"
-            required
-            type="text"
-            placeholder="10.000"
-            value="{{ old('price') }}"
-            class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
-        >
+        <div class="space-y-2">
+            <input
+                id="price"
+                name="price"
+                required
+                type="text"
+                inputmode="numeric"
+                placeholder="10.000"
+                value="{{ old('price') }}"
+                class="w-full p-4 rounded-xl bg-black text-white border border-yellow-400"
+            >
+
+            <label class="flex items-center gap-2 text-sm text-yellow-100">
+                <input
+                    id="freeRaffle"
+                    name="free_raffle"
+                    type="checkbox"
+                    value="1"
+                    class="h-4 w-4 rounded border-yellow-400 bg-black text-yellow-400"
+                    @checked(old('price') === '0')
+                >
+                Sorteo gratis (precio 0 Gs)
+            </label>
+        </div>
 
         <!-- CANTIDAD DE NÚMEROS -->
         <input
@@ -158,6 +173,80 @@
             </div>
         </div>
 
+        <!-- ── SORTEO PONDERADO ───────────────────────────────────────── -->
+        <div class="border-t border-yellow-500/30 pt-4">
+
+            <div class="flex items-center gap-3 mb-3">
+                <input
+                    type="checkbox"
+                    id="weightedDrawEnabled"
+                    name="weighted_draw_enabled"
+                    value="1"
+                    {{ old('weighted_draw_enabled') ? 'checked' : '' }}
+                    onchange="toggleWeightedDraw(this.checked)"
+                    class="w-5 h-5 accent-yellow-400 cursor-pointer"
+                >
+                <label for="weightedDrawEnabled" class="text-white font-bold cursor-pointer">
+                    ⚖️ Activar sorteo ponderado
+                </label>
+            </div>
+
+            <div id="weightedDrawFields" class="{{ old('weighted_draw_enabled') ? '' : 'hidden' }} space-y-3 pl-2">
+                <p class="text-gray-400 text-xs leading-relaxed">
+                    Reduce las probabilidades de ganar para quienes ya ganaron un premio en este sorteo.
+                    <strong class="text-gray-300">Peso 1.0</strong> = probabilidad normal ·
+                    <strong class="text-gray-300">Peso 0.0</strong> = bloqueado.
+                </p>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-[#1a1a1a] border border-yellow-500/20 rounded-xl p-3">
+                        <div class="text-xs text-yellow-300 font-bold mb-1">Sin victorias</div>
+                        <div class="text-xs text-gray-500 mb-2">Peso por número</div>
+                        <input
+                            type="number" step="0.01" min="0" max="1"
+                            name="win_weights[0]"
+                            value="{{ old('win_weights.0', 1.0) }}"
+                            class="w-full p-2 rounded-lg bg-black text-white border border-gray-600 text-sm text-center font-bold"
+                        >
+                    </div>
+                    <div class="bg-[#1a1a1a] border border-orange-500/20 rounded-xl p-3">
+                        <div class="text-xs text-orange-300 font-bold mb-1">Ganó 1 premio</div>
+                        <div class="text-xs text-gray-500 mb-2">Peso por número</div>
+                        <input
+                            type="number" step="0.01" min="0" max="1"
+                            name="win_weights[1]"
+                            value="{{ old('win_weights.1', 0.5) }}"
+                            class="w-full p-2 rounded-lg bg-black text-white border border-gray-600 text-sm text-center font-bold"
+                        >
+                    </div>
+                    <div class="bg-[#1a1a1a] border border-red-500/20 rounded-xl p-3">
+                        <div class="text-xs text-red-300 font-bold mb-1">Ganó 2 premios</div>
+                        <div class="text-xs text-gray-500 mb-2">Peso por número</div>
+                        <input
+                            type="number" step="0.01" min="0" max="1"
+                            name="win_weights[2]"
+                            value="{{ old('win_weights.2', 0.25) }}"
+                            class="w-full p-2 rounded-lg bg-black text-white border border-gray-600 text-sm text-center font-bold"
+                        >
+                    </div>
+                    <div class="bg-[#1a1a1a] border border-gray-500/20 rounded-xl p-3">
+                        <div class="text-xs text-gray-400 font-bold mb-1">Ganó 3+ premios</div>
+                        <div class="text-xs text-gray-500 mb-2">Peso por número</div>
+                        <input
+                            type="number" step="0.01" min="0" max="1"
+                            name="win_weights[3]"
+                            value="{{ old('win_weights.3', 0.0) }}"
+                            class="w-full p-2 rounded-lg bg-black text-white border border-gray-600 text-sm text-center font-bold"
+                        >
+                    </div>
+                </div>
+
+                <p class="text-gray-600 text-xs">
+                    Esta regla aplica solo dentro del mismo sorteo. No afecta sorteos futuros.
+                </p>
+            </div>
+        </div>
+
         <button
             type="submit"
             id="submitBtn"
@@ -184,11 +273,34 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Formato precio ─────────────────────────────────────────
     const priceInput = document.getElementById('price');
+    const freeRaffle = document.getElementById('freeRaffle');
+
+    function syncFreeRaffle() {
+        if (!priceInput || !freeRaffle) return;
+
+        if (freeRaffle.checked) {
+            priceInput.value = '0';
+            priceInput.readOnly = true;
+            priceInput.classList.add('opacity-70');
+        } else {
+            priceInput.readOnly = false;
+            priceInput.classList.remove('opacity-70');
+        }
+    }
+
     if (priceInput) {
         priceInput.addEventListener('input', function (e) {
             let value = e.target.value.replace(/\D/g, '');
+            if (value === '') {
+                e.target.value = '';
+                return;
+            }
             e.target.value = new Intl.NumberFormat('es-PY').format(value);
         });
+    }
+    if (freeRaffle) {
+        freeRaffle.addEventListener('change', syncFreeRaffle);
+        syncFreeRaffle();
     }
 
     // ── Preview imagen ─────────────────────────────────────────
@@ -270,6 +382,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function togglePromo(enabled) {
     document.getElementById('promoFields').classList.toggle('hidden', !enabled);
+}
+
+function toggleWeightedDraw(enabled) {
+    document.getElementById('weightedDrawFields').classList.toggle('hidden', !enabled);
 }
 
 function togglePromoLimit(type) {

@@ -64,10 +64,11 @@ class DraftController extends Controller
                 'urgency_messages' => $candidate->metrics['urgency_messages'] ?? [],
             ]);
 
+            $prizesTotal = $prizes->count();
             foreach ($prizes as $index => $prize) {
                 RafflePrize::create([
                     'raffle_id' => $raffle->id,
-                    'order'     => $index + 1,
+                    'order'     => $prizesTotal - $index,
                     'name'      => $prize['name'],
                     'cost'      => (int) $prize['cost_gs'],
                 ]);
